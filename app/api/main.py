@@ -2,6 +2,10 @@ from fastapi import FastAPI, Query
 
 from app.automation.smoke_runner import run_smoke_tests
 from app.core.settings import get_settings
+from app.intelligence.analysis_models import (
+    PageAnalysisRequest,
+    PageAnalysisResult,
+)
 from app.intelligence.models import (
     BrowserIntelligenceRequest,
     BrowserIntelligenceResult,
@@ -52,14 +56,30 @@ def automation_smoke_tests(
 @app.post(
     "/intelligence/analyze",
     response_model=BrowserIntelligenceResult,
-    summary="Analyze a web page",
+    summary="Extract browser intelligence",
     description=(
         "Open a public URL with Playwright and return structured browser "
-        "intelligence including metadata, headings, links, images, forms, "
+        "observations including metadata, headings, links, images, forms, "
         "buttons, inputs, console errors, and basic timing metrics."
     ),
 )
 def analyze_browser_page(
     request: BrowserIntelligenceRequest,
 ) -> BrowserIntelligenceResult:
-    return intelligence_service.analyze(str(request.url))
+    return intelligence_service.analyze_browser(str(request.url))
+
+
+@app.post(
+    "/ai/analyze",
+    response_model=PageAnalysisResult,
+    summary="Generate explainable page analysis",
+    description=(
+        "Open a public URL, collect structured browser intelligence, and "
+        "apply Zypharion's deterministic reasoning engine to classify the "
+        "page and generate explainable findings and recommendations."
+    ),
+)
+def analyze_page_intelligence(
+    request: PageAnalysisRequest,
+) -> PageAnalysisResult:
+    return intelligence_service.analyze_page(str(request.url))

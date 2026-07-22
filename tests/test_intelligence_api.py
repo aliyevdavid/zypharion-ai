@@ -22,7 +22,7 @@ def test_intelligence_analyze_endpoint_returns_structured_result() -> None:
     )
 
     with patch(
-        "app.api.main.intelligence_service.analyze",
+        "app.api.main.intelligence_service.analyze_browser",
         return_value=mocked_result,
     ) as mocked_analyze:
         response = client.post(

@@ -20,7 +20,7 @@ def test_intelligence_service_delegates_to_extractor() -> None:
         "app.services.intelligence_service.analyze_page",
         return_value=expected_result,
     ) as mocked_analyze_page:
-        result = service.analyze("https://example.com")
+        result = service.analyze_browser("https://example.com")
 
     mocked_analyze_page.assert_called_once_with("https://example.com")
     assert result == expected_result
