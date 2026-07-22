@@ -62,4 +62,4 @@ def automation_smoke_tests(
 def analyze_browser_page(
     request: BrowserIntelligenceRequest,
 ) -> BrowserIntelligenceResult:
-    return intelligence_service.analyze(str(request.url))
+    return intelligence_service.analyze_browser(str(request.url))
