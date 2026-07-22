@@ -104,3 +104,33 @@ Contains small reusable helpers that do not belong to a business domain.
 - Secrets must come from environment variables or secret-management systems.
 - Tests must use deterministic substitutes for external AI providers.
 - High-impact autonomous actions require a human-approval boundary.
+
+## Browser Intelligence
+
+The Browser Intelligence Engine is responsible for collecting structured information from web applications using Playwright.
+
+Flow:
+
+Client
+
+↓
+
+FastAPI
+
+↓
+IntelligenceService
+
+↓
+
+Browser Intelligence Extractor
+
+↓
+
+Playwright
+
+↓
+
+Structured BrowserIntelligenceResult
+
+
+The extracted information becomes the input for future AI reasoning, autonomous browser agents, accessibility analysis, security heuristics, and automated test generation.

@@ -2,9 +2,15 @@ from fastapi import FastAPI, Query
 
 from app.automation.smoke_runner import run_smoke_tests
 from app.core.settings import get_settings
+from app.intelligence.models import (
+    BrowserIntelligenceRequest,
+    BrowserIntelligenceResult,
+)
+from app.services import IntelligenceService
 
 
 settings = get_settings()
+intelligence_service = IntelligenceService()
 
 app = FastAPI(
     title=settings.app_name,
@@ -41,3 +47,19 @@ def automation_smoke_tests(
     ),
 ) -> dict:
     return run_smoke_tests(url)
+
+
+@app.post(
+    "/intelligence/analyze",
+    response_model=BrowserIntelligenceResult,
+    summary="Analyze a web page",
+    description=(
+        "Open a public URL with Playwright and return structured browser "
+        "intelligence including metadata, headings, links, images, forms, "
+        "buttons, inputs, console errors, and basic timing metrics."
+    ),
+)
+def analyze_browser_page(
+    request: BrowserIntelligenceRequest,
+) -> BrowserIntelligenceResult:
+    return intelligence_service.analyze(str(request.url))
