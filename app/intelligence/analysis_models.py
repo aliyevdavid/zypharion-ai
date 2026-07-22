@@ -1,4 +1,5 @@
 from enum import StrEnum
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -48,8 +49,12 @@ class PageAnalysisRequest(BaseModel):
 class PageAnalysisResult(BaseModel):
     """
     Final structured output produced by the intelligence analysis layer.
+
+    Each result receives a unique identifier so it can later be persisted,
+    retrieved, compared, referenced in reports, or tracked historically.
     """
 
+    analysis_id: UUID = Field(default_factory=uuid4)
     requested_url: str
     final_url: str
     title: str

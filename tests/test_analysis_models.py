@@ -1,3 +1,5 @@
+from uuid import UUID
+
 import pytest
 from pydantic import ValidationError
 
@@ -8,6 +10,19 @@ from app.intelligence.analysis_models import (
     PageClassification,
     PageType,
 )
+
+
+def _build_page_analysis_result() -> PageAnalysisResult:
+    return PageAnalysisResult(
+        requested_url="https://example.com",
+        final_url="https://example.com/",
+        title="Example Domain",
+        classification=PageClassification(
+            page_type=PageType.MARKETING,
+            confidence=0.75,
+            evidence=["Informational page structure detected"],
+        ),
+    )
 
 
 def test_page_analysis_request_accepts_valid_url() -> None:
@@ -53,20 +68,20 @@ def test_page_classification_rejects_negative_confidence() -> None:
 
 
 def test_page_analysis_result_uses_empty_collection_defaults() -> None:
-    result = PageAnalysisResult(
-        requested_url="https://example.com",
-        final_url="https://example.com/",
-        title="Example Domain",
-        classification=PageClassification(
-            page_type=PageType.MARKETING,
-            confidence=0.75,
-            evidence=["Informational page structure detected"],
-        ),
-    )
+    result = _build_page_analysis_result()
 
     assert result.detected_features == []
     assert result.findings == []
     assert result.recommendations == []
+
+
+def test_page_analysis_result_generates_unique_uuid() -> None:
+    first_result = _build_page_analysis_result()
+    second_result = _build_page_analysis_result()
+
+    assert isinstance(first_result.analysis_id, UUID)
+    assert isinstance(second_result.analysis_id, UUID)
+    assert first_result.analysis_id != second_result.analysis_id
 
 
 def test_analysis_finding_uses_default_info_severity() -> None:
