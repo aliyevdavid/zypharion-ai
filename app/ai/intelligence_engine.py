@@ -1,9 +1,12 @@
+import json
 from abc import ABC, abstractmethod
 
+from app.ai.engine import AIEngine
 from app.ai.models import (
     AIIntelligenceResult,
     AIPageClassification,
     AIRecommendation,
+    AIRequest,
     RecommendationPriority,
 )
 from app.intelligence.analysis_models import PageAnalysisResult
@@ -103,3 +106,83 @@ class DeterministicIntelligenceEngine(AIIntelligenceEngine):
                 start=1,
             )
         ]
+
+
+class LLMIntelligenceEngine(AIIntelligenceEngine):
+    """
+    Page-intelligence adapter backed by a provider-neutral AI engine.
+    """
+
+    def __init__(self, ai_engine: AIEngine) -> None:
+        self._ai_engine = ai_engine
+
+    def analyze(
+        self,
+        analysis: PageAnalysisResult,
+    ) -> AIIntelligenceResult:
+        """Generate and validate structured page intelligence."""
+        return self._generate_result(analysis)
+
+    def classify_page(
+        self,
+        analysis: PageAnalysisResult,
+    ) -> AIPageClassification:
+        return self._generate_result(analysis).classification
+
+    def generate_summary(
+        self,
+        analysis: PageAnalysisResult,
+    ) -> str:
+        return self._generate_result(analysis).summary
+
+    def generate_recommendations(
+        self,
+        analysis: PageAnalysisResult,
+    ) -> list[AIRecommendation]:
+        return self._generate_result(analysis).recommendations
+
+    def _generate_result(
+        self,
+        analysis: PageAnalysisResult,
+    ) -> AIIntelligenceResult:
+        response = self._ai_engine.generate(
+            self._build_request(analysis)
+        )
+        response_data = json.loads(response.content)
+
+        return AIIntelligenceResult.model_validate(response_data)
+
+    @staticmethod
+    def _build_request(
+        analysis: PageAnalysisResult,
+    ) -> AIRequest:
+        context = {
+            "title": analysis.title,
+            "final_url": analysis.final_url,
+            "deterministic_classification": {
+                "page_type": analysis.classification.page_type.value,
+                "confidence": analysis.classification.confidence,
+                "evidence": analysis.classification.evidence,
+            },
+            "detected_features": analysis.detected_features,
+            "findings": [
+                finding.model_dump(mode="json")
+                for finding in analysis.findings
+            ],
+            "deterministic_recommendations": analysis.recommendations,
+        }
+
+        return AIRequest(
+            instruction=(
+                "Return only JSON with classification "
+                "{category, confidence, reasoning}, summary, and "
+                "recommendations [{title, description, priority}]. "
+                "Recommendation priority must be low, medium, or high."
+            ),
+            context=json.dumps(
+                context,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            temperature=0.0,
+        )

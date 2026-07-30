@@ -2,6 +2,7 @@ from app.ai.engine import AIEngine
 from app.ai.intelligence_engine import (
     AIIntelligenceEngine,
     DeterministicIntelligenceEngine,
+    LLMIntelligenceEngine,
 )
 from app.ai.mock_engine import MockAIEngine
 from app.ai.models import (
@@ -22,6 +23,7 @@ __all__ = [
     "AIRequest",
     "AIResponse",
     "DeterministicIntelligenceEngine",
+    "LLMIntelligenceEngine",
     "MockAIEngine",
     "RecommendationPriority",
 ]
