@@ -55,15 +55,35 @@ def _get_optional_attribute(
     return locator.first.get_attribute(attribute_name)
 
 
+def _evaluate_all(
+    page: Page,
+    selector: str,
+    expression: str,
+) -> list[dict[str, object]]:
+    records = page.locator(selector).evaluate_all(expression)
+
+    if not isinstance(records, list):
+        raise TypeError("Browser snapshot must return a list")
+
+    return records
+
+
 def _extract_headings(page: Page) -> list[HeadingInfo]:
     headings: list[HeadingInfo] = []
 
     for level in range(1, 7):
-        locator = page.locator(f"h{level}")
+        records = _evaluate_all(
+            page,
+            f"h{level}",
+            """
+            elements => elements.map(element => ({
+                text: element.innerText,
+            }))
+            """,
+        )
 
-        for index in range(locator.count()):
-            text = _normalize_text(locator.nth(index).inner_text())
-
+        for record in records:
+            text = _normalize_text(record.get("text"))
             if text:
                 headings.append(
                     HeadingInfo(
@@ -77,12 +97,19 @@ def _extract_headings(page: Page) -> list[HeadingInfo]:
 
 def _extract_links(page: Page) -> list[LinkInfo]:
     links: list[LinkInfo] = []
-    locator = page.locator("a[href]")
+    records = _evaluate_all(
+        page,
+        "a[href]",
+        """
+        elements => elements.map(element => ({
+            text: element.innerText,
+            href: element.getAttribute("href"),
+        }))
+        """,
+    )
 
-    for index in range(locator.count()):
-        element = locator.nth(index)
-        raw_href = element.get_attribute("href")
-
+    for record in records:
+        raw_href = record.get("href")
         if not raw_href:
             continue
 
@@ -90,7 +117,7 @@ def _extract_links(page: Page) -> list[LinkInfo]:
 
         links.append(
             LinkInfo(
-                text=_normalize_text(element.inner_text()),
+                text=_normalize_text(record.get("text")),
                 href=absolute_href,
                 is_external=_is_external_link(
                     page_url=page.url,
@@ -104,19 +131,26 @@ def _extract_links(page: Page) -> list[LinkInfo]:
 
 def _extract_images(page: Page) -> list[ImageInfo]:
     images: list[ImageInfo] = []
-    locator = page.locator("img")
+    records = _evaluate_all(
+        page,
+        "img",
+        """
+        elements => elements.map(element => ({
+            src: element.getAttribute("src"),
+            alt: element.getAttribute("alt"),
+        }))
+        """,
+    )
 
-    for index in range(locator.count()):
-        element = locator.nth(index)
-        raw_src = element.get_attribute("src")
-
+    for record in records:
+        raw_src = record.get("src")
         if not raw_src:
             continue
 
         images.append(
             ImageInfo(
                 src=urljoin(page.url, raw_src),
-                alt=element.get_attribute("alt"),
+                alt=record.get("alt"),
             )
         )
 
@@ -125,13 +159,20 @@ def _extract_images(page: Page) -> list[ImageInfo]:
 
 def _extract_forms(page: Page) -> list[FormInfo]:
     forms: list[FormInfo] = []
-    locator = page.locator("form")
+    records = _evaluate_all(
+        page,
+        "form",
+        """
+        elements => elements.map(element => ({
+            action: element.getAttribute("action"),
+            method: element.getAttribute("method"),
+        }))
+        """,
+    )
 
-    for index in range(locator.count()):
-        element = locator.nth(index)
-        raw_action = element.get_attribute("action")
-        method = (element.get_attribute("method") or "get").lower()
-
+    for record in records:
+        raw_action = record.get("action")
+        method = (record.get("method") or "get").lower()
         forms.append(
             FormInfo(
                 action=(
@@ -148,15 +189,22 @@ def _extract_forms(page: Page) -> list[FormInfo]:
 
 def _extract_buttons(page: Page) -> list[ButtonInfo]:
     buttons: list[ButtonInfo] = []
-    locator = page.locator("button")
+    records = _evaluate_all(
+        page,
+        "button",
+        """
+        elements => elements.map(element => ({
+            text: element.innerText,
+            button_type: element.getAttribute("type"),
+        }))
+        """,
+    )
 
-    for index in range(locator.count()):
-        element = locator.nth(index)
-
+    for record in records:
         buttons.append(
             ButtonInfo(
-                text=_normalize_text(element.inner_text()),
-                button_type=element.get_attribute("type"),
+                text=_normalize_text(record.get("text")),
+                button_type=record.get("button_type"),
             )
         )
 
@@ -165,17 +213,26 @@ def _extract_buttons(page: Page) -> list[ButtonInfo]:
 
 def _extract_inputs(page: Page) -> list[InputInfo]:
     inputs: list[InputInfo] = []
-    locator = page.locator("input")
+    records = _evaluate_all(
+        page,
+        "input",
+        """
+        elements => elements.map(element => ({
+            name: element.getAttribute("name"),
+            input_type: element.getAttribute("type"),
+            placeholder: element.getAttribute("placeholder"),
+            required: element.hasAttribute("required"),
+        }))
+        """,
+    )
 
-    for index in range(locator.count()):
-        element = locator.nth(index)
-
+    for record in records:
         inputs.append(
             InputInfo(
-                name=element.get_attribute("name"),
-                input_type=element.get_attribute("type") or "text",
-                placeholder=element.get_attribute("placeholder"),
-                required=element.get_attribute("required") is not None,
+                name=record.get("name"),
+                input_type=record.get("input_type") or "text",
+                placeholder=record.get("placeholder"),
+                required=bool(record.get("required", False)),
             )
         )
 
