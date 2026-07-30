@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import APIRouter, Depends, FastAPI, Query, Request
 
 from app.analysis import (
     PageAnalysisRequest as ApplicationPageAnalysisRequest,
@@ -9,7 +9,7 @@ from app.analysis import (
     create_page_analysis_service,
 )
 from app.automation.smoke_runner import run_smoke_tests
-from app.core.settings import get_settings
+from app.core.settings import Settings, get_settings
 from app.intelligence.analysis_models import (
     PageAnalysisRequest,
     PageAnalysisResult,
@@ -21,14 +21,8 @@ from app.intelligence.models import (
 from app.services import IntelligenceService
 
 
-settings = get_settings()
 intelligence_service = IntelligenceService()
-
-app = FastAPI(
-    title=settings.app_name,
-    description="AI Software Intelligence Platform backend API.",
-    version=settings.app_version,
-)
+router = APIRouter()
 
 
 @lru_cache
@@ -37,8 +31,9 @@ def get_page_analysis_service() -> PageAnalysisService:
     return create_page_analysis_service()
 
 
-@app.get("/")
-async def root() -> dict[str, str]:
+@router.get("/")
+async def root(request: Request) -> dict[str, str]:
+    settings: Settings = request.app.state.settings
     return {
         "message": "Welcome to Zypharion AI Software Intelligence Platform",
         "status": "running",
@@ -46,8 +41,9 @@ async def root() -> dict[str, str]:
     }
 
 
-@app.get("/health")
-async def health_check() -> dict[str, str]:
+@router.get("/health")
+async def health_check(request: Request) -> dict[str, str]:
+    settings: Settings = request.app.state.settings
     return {
         "status": "healthy",
         "service": "zypharion-api",
@@ -56,7 +52,7 @@ async def health_check() -> dict[str, str]:
     }
 
 
-@app.get("/automation/smoke")
+@router.get("/automation/smoke")
 def automation_smoke_tests(
     url: str = Query(
         ...,
@@ -67,7 +63,7 @@ def automation_smoke_tests(
     return run_smoke_tests(url)
 
 
-@app.post(
+@router.post(
     "/intelligence/analyze",
     response_model=BrowserIntelligenceResult,
     summary="Extract browser intelligence",
@@ -83,7 +79,7 @@ def analyze_browser_page(
     return intelligence_service.analyze_browser(str(request.url))
 
 
-@app.post(
+@router.post(
     "/ai/analyze",
     response_model=PageAnalysisResult,
     summary="Generate explainable page analysis",
@@ -99,7 +95,7 @@ def analyze_page_intelligence(
     return intelligence_service.analyze_page(str(request.url))
 
 
-@app.post(
+@router.post(
     "/api/v1/analyze",
     response_model=ApplicationPageAnalysisResult,
     summary="Run complete page analysis",
@@ -113,3 +109,19 @@ def analyze_application_page(
     service: PageAnalysisService = Depends(get_page_analysis_service),
 ) -> ApplicationPageAnalysisResult:
     return service.analyze(request)
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Create a configured API application without external runtime work."""
+    resolved_settings = settings if settings is not None else get_settings()
+    application = FastAPI(
+        title=resolved_settings.app_name,
+        description="AI Software Intelligence Platform backend API.",
+        version=resolved_settings.app_version,
+    )
+    application.state.settings = resolved_settings
+    application.include_router(router)
+    return application
+
+
+app = create_app()
