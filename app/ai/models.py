@@ -12,6 +12,16 @@ class AIRequest(BaseModel):
     context: str | None = None
     temperature: float = Field(default=0.2, ge=0.0, le=2.0)
 
+    @property
+    def prompt(self) -> str:
+        """
+        Return the provider-ready prompt represented by this request.
+        """
+        if self.context is None:
+            return self.instruction
+
+        return f"{self.instruction}\n\nContext:\n{self.context}"
+
 
 class AIResponse(BaseModel):
     """
