@@ -3,9 +3,13 @@ from unittest.mock import Mock
 import pytest
 
 from app.ai import (
+    AIEngine,
     AIIntelligenceEngine,
     AIIntelligenceResult,
     AIPageClassification,
+    AIResponse,
+    LLMIntelligenceEngine,
+    MockAIEngine,
 )
 from app.analysis import (
     AnalysisStage,
@@ -107,6 +111,22 @@ def test_successful_ai_analysis(
     ai_engine.analyze.assert_called_once_with(intelligence)
 
 
+def test_mock_ai_analysis_returns_validated_intelligence(
+    browser_result: BrowserIntelligenceResult,
+    intelligence: DeterministicPageAnalysisResult,
+) -> None:
+    result = PageAnalysisService(
+        Mock(return_value=browser_result),
+        Mock(return_value=intelligence),
+        LLMIntelligenceEngine(MockAIEngine()),
+    ).analyze(PageAnalysisRequest(url="https://example.com", use_ai=True))
+
+    assert result.status is AnalysisStatus.SUCCESS
+    assert result.ai_intelligence is not None
+    assert result.ai_intelligence.classification.category == "unknown"
+    assert result.errors == []
+
+
 def test_browser_exception_returns_safe_failure() -> None:
     browser = Mock(side_effect=RuntimeError("secret browser path"))
     deterministic = Mock()
@@ -185,6 +205,42 @@ def test_ai_failure_preserves_prior_results(
     assert result.errors[0].code == "ai_intelligence_failed"
     assert "provider secret" not in result.model_dump_json()
     ai_engine.analyze.assert_called_once_with(intelligence)
+
+
+@pytest.mark.parametrize(
+    "provider_content",
+    [
+        "{malformed JSON",
+        '{"summary":"Incomplete response"}',
+    ],
+)
+def test_invalid_ai_response_preserves_prior_results(
+    browser_result: BrowserIntelligenceResult,
+    intelligence: DeterministicPageAnalysisResult,
+    provider_content: str,
+) -> None:
+    provider = Mock(spec=AIEngine)
+    provider.generate.return_value = AIResponse(
+        content=provider_content,
+        provider="test",
+        model="test-model",
+    )
+
+    result = PageAnalysisService(
+        Mock(return_value=browser_result),
+        Mock(return_value=intelligence),
+        LLMIntelligenceEngine(provider),
+    ).analyze(PageAnalysisRequest(url="https://example.com", use_ai=True))
+
+    assert result.status is AnalysisStatus.PARTIAL_SUCCESS
+    assert result.browser_result is browser_result
+    assert result.intelligence is intelligence
+    assert result.ai_intelligence is None
+    assert result.errors[0].code == "ai_response_invalid"
+    assert result.errors[0].message == (
+        "AI provider response could not be parsed or validated."
+    )
+    assert provider_content not in result.model_dump_json()
 
 
 def test_missing_ai_dependency_is_safe(

@@ -1,7 +1,9 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 
-from app.ai import AIRequest, MockAIEngine
+from app.ai import AIIntelligenceResult, AIRequest, MockAIEngine
 
 
 def test_mock_ai_engine_returns_structured_response() -> None:
@@ -15,7 +17,10 @@ def test_mock_ai_engine_returns_structured_response() -> None:
 
     assert response.provider == "mock"
     assert response.model == "deterministic-mock-v1"
-    assert "Analyze the login page" in response.content
+    parsed = AIIntelligenceResult.model_validate(json.loads(response.content))
+    assert parsed.classification.category == "unknown"
+    assert parsed.summary == "Deterministic mock page intelligence completed."
+    assert parsed.recommendations == []
     assert response.metadata["has_context"] is True
 
 

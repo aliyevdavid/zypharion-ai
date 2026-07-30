@@ -3,6 +3,7 @@ from time import perf_counter
 from typing import Protocol
 
 from app.ai import AIIntelligenceEngine, AIIntelligenceResult
+from app.ai.page_intelligence_parser import AIResponseValidationError
 from app.analysis.models import (
     AnalysisError,
     AnalysisStage,
@@ -132,6 +133,24 @@ class PageAnalysisService:
 
         try:
             ai_intelligence = self._ai_engine.analyze(intelligence)
+        except AIResponseValidationError:
+            return self._result(
+                started_at=started_at,
+                url=url,
+                status=AnalysisStatus.PARTIAL_SUCCESS,
+                browser_result=browser_result,
+                intelligence=intelligence,
+                errors=[
+                    AnalysisError(
+                        stage=AnalysisStage.INTELLIGENCE,
+                        code="ai_response_invalid",
+                        message=(
+                            "AI provider response could not be parsed or "
+                            "validated."
+                        ),
+                    )
+                ],
+            )
         except Exception:
             return self._result(
                 started_at=started_at,
