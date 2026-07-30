@@ -3,7 +3,12 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.ai import AIIntelligenceResult, AIPageClassification
+from app.ai import (
+    AIIntelligenceResult,
+    AIPageClassification,
+    LLMIntelligenceEngine,
+    MockAIEngine,
+)
 from app.analysis import (
     AnalysisError,
     AnalysisStage,
@@ -116,6 +121,35 @@ def test_successful_ai_response_is_serialized(
     assert response.status_code == 200
     assert response.json() == result.model_dump(mode="json")
     assert response.json()["ai_intelligence"]["summary"] == "A marketing page."
+
+
+def test_use_ai_with_mock_provider_runs_complete_endpoint_workflow(
+    browser_result: BrowserIntelligenceResult,
+    deterministic_result: DeterministicPageAnalysisResult,
+) -> None:
+    service = PageAnalysisService(
+        Mock(return_value=browser_result),
+        Mock(return_value=deterministic_result),
+        LLMIntelligenceEngine(MockAIEngine()),
+    )
+    app.dependency_overrides[get_page_analysis_service] = lambda: service
+
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/analyze",
+                json={"url": "https://example.com", "use_ai": True},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert response.json()["intelligence"]["title"] == "Example"
+    assert response.json()["ai_intelligence"]["classification"][
+        "category"
+    ] == "unknown"
+    assert response.json()["errors"] == []
 
 
 @pytest.mark.parametrize(

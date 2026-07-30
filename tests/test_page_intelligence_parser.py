@@ -1,10 +1,10 @@
 import json
 
 import pytest
-from pydantic import ValidationError
 
 from app.ai import AIIntelligenceResult, RecommendationPriority
 from app.ai.page_intelligence_parser import (
+    AIResponseValidationError,
     PageIntelligenceResponseParser,
 )
 
@@ -41,12 +41,12 @@ def test_parser_returns_validated_intelligence_result() -> None:
 
 
 def test_parser_rejects_malformed_json() -> None:
-    with pytest.raises(json.JSONDecodeError):
+    with pytest.raises(AIResponseValidationError):
         PageIntelligenceResponseParser().parse("{not valid JSON")
 
 
 def test_parser_rejects_missing_required_fields() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(AIResponseValidationError):
         PageIntelligenceResponseParser().parse(
             json.dumps({"summary": "Incomplete"})
         )
@@ -69,7 +69,7 @@ def test_parser_rejects_invalid_values(
     else:
         response_data["recommendations"][0]["priority"] = value
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(AIResponseValidationError):
         PageIntelligenceResponseParser().parse(
             json.dumps(response_data)
         )
