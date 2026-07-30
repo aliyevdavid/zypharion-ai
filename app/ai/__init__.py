@@ -1,4 +1,5 @@
 from app.ai.engine import AIEngine
+from app.ai.composition import create_intelligence_engine
 from app.ai.intelligence_engine import (
     AIIntelligenceEngine,
     DeterministicIntelligenceEngine,
@@ -22,6 +23,7 @@ __all__ = [
     "AIRecommendation",
     "AIRequest",
     "AIResponse",
+    "create_intelligence_engine",
     "DeterministicIntelligenceEngine",
     "LLMIntelligenceEngine",
     "MockAIEngine",
