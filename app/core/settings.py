@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     llm_model: str = "not-configured"
     openai_api_key: str | None = None
 
+    ai_provider: str = "mock"
+    azure_openai_endpoint: str | None = None
+    azure_openai_api_key: str | None = None
+    azure_openai_deployment: str | None = None
+    azure_openai_api_version: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
