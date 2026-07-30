@@ -2,15 +2,14 @@ from functools import lru_cache
 
 from fastapi import Depends, FastAPI, Query
 
-from app.ai import create_intelligence_engine
 from app.analysis import (
     PageAnalysisRequest as ApplicationPageAnalysisRequest,
     PageAnalysisResult as ApplicationPageAnalysisResult,
     PageAnalysisService,
+    create_page_analysis_service,
 )
 from app.automation.smoke_runner import run_smoke_tests
 from app.core.settings import get_settings
-from app.intelligence import analyze_browser_intelligence, analyze_page
 from app.intelligence.analysis_models import (
     PageAnalysisRequest,
     PageAnalysisResult,
@@ -35,11 +34,7 @@ app = FastAPI(
 @lru_cache
 def get_page_analysis_service() -> PageAnalysisService:
     """Compose the complete page-analysis workflow for API requests."""
-    return PageAnalysisService(
-        browser_analyzer=analyze_page,
-        deterministic_analyzer=analyze_browser_intelligence,
-        ai_engine=create_intelligence_engine(get_settings()),
-    )
+    return create_page_analysis_service()
 
 
 @app.get("/")

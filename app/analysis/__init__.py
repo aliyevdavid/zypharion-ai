@@ -10,12 +10,14 @@ from app.analysis.service import (
     DeterministicAnalyzer,
     PageAnalysisService,
 )
+from app.analysis.composition import create_page_analysis_service
 
 __all__ = [
     "AnalysisError",
     "AnalysisStage",
     "AnalysisStatus",
     "BrowserAnalyzer",
+    "create_page_analysis_service",
     "DeterministicAnalyzer",
     "PageAnalysisRequest",
     "PageAnalysisResult",
