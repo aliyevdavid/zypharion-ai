@@ -1,4 +1,3 @@
-import json
 from abc import ABC, abstractmethod
 
 from app.ai.engine import AIEngine
@@ -6,9 +5,12 @@ from app.ai.models import (
     AIIntelligenceResult,
     AIPageClassification,
     AIRecommendation,
-    AIRequest,
     RecommendationPriority,
 )
+from app.ai.page_intelligence_parser import (
+    PageIntelligenceResponseParser,
+)
+from app.ai.prompts import PageIntelligencePromptBuilder
 from app.intelligence.analysis_models import PageAnalysisResult
 
 
@@ -113,8 +115,23 @@ class LLMIntelligenceEngine(AIIntelligenceEngine):
     Page-intelligence adapter backed by a provider-neutral AI engine.
     """
 
-    def __init__(self, ai_engine: AIEngine) -> None:
+    def __init__(
+        self,
+        ai_engine: AIEngine,
+        prompt_builder: PageIntelligencePromptBuilder | None = None,
+        response_parser: PageIntelligenceResponseParser | None = None,
+    ) -> None:
         self._ai_engine = ai_engine
+        self._prompt_builder = (
+            prompt_builder
+            if prompt_builder is not None
+            else PageIntelligencePromptBuilder()
+        )
+        self._response_parser = (
+            response_parser
+            if response_parser is not None
+            else PageIntelligenceResponseParser()
+        )
 
     def analyze(
         self,
@@ -145,44 +162,9 @@ class LLMIntelligenceEngine(AIIntelligenceEngine):
         self,
         analysis: PageAnalysisResult,
     ) -> AIIntelligenceResult:
-        response = self._ai_engine.generate(
-            self._build_request(analysis)
-        )
-        response_data = json.loads(response.content)
+        request = self._prompt_builder.build(analysis)
+        response = self._ai_engine.generate(request)
 
-        return AIIntelligenceResult.model_validate(response_data)
-
-    @staticmethod
-    def _build_request(
-        analysis: PageAnalysisResult,
-    ) -> AIRequest:
-        context = {
-            "title": analysis.title,
-            "final_url": analysis.final_url,
-            "deterministic_classification": {
-                "page_type": analysis.classification.page_type.value,
-                "confidence": analysis.classification.confidence,
-                "evidence": analysis.classification.evidence,
-            },
-            "detected_features": analysis.detected_features,
-            "findings": [
-                finding.model_dump(mode="json")
-                for finding in analysis.findings
-            ],
-            "deterministic_recommendations": analysis.recommendations,
-        }
-
-        return AIRequest(
-            instruction=(
-                "Return only JSON with classification "
-                "{category, confidence, reasoning}, summary, and "
-                "recommendations [{title, description, priority}]. "
-                "Recommendation priority must be low, medium, or high."
-            ),
-            context=json.dumps(
-                context,
-                sort_keys=True,
-                separators=(",", ":"),
-            ),
-            temperature=0.0,
+        return self._response_parser.parse(
+            response.content
         )
