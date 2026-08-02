@@ -212,6 +212,7 @@ def test_ai_failure_preserves_prior_results(
     [
         "{malformed JSON",
         '{"summary":"Incomplete response"}',
+        '```json\n{"summary":"Incomplete response"} trailing\n```',
     ],
 )
 def test_invalid_ai_response_preserves_prior_results(
