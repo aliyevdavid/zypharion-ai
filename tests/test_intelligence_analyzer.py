@@ -3,6 +3,7 @@ from app.intelligence.analyzer import analyze_browser_intelligence
 from app.intelligence.models import (
     BrowserIntelligenceResult,
     ButtonInfo,
+    ExtractionWarning,
     FormInfo,
     HeadingInfo,
     ImageInfo,
@@ -144,3 +145,18 @@ def test_analyzer_uses_unknown_when_no_signals_exist() -> None:
     assert analysis.classification.evidence == [
         "No strong classification signals detected"
     ]
+
+
+def test_analyzer_accepts_browser_result_with_extraction_warning() -> None:
+    browser_result = _build_result(title="Documentation")
+    browser_result.warnings.append(
+        ExtractionWarning(
+            category="links",
+            code="links_extraction_failed",
+            message="Link content could not be extracted.",
+        )
+    )
+
+    analysis = analyze_browser_intelligence(browser_result)
+
+    assert analysis.classification.page_type == PageType.DOCUMENTATION

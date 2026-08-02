@@ -19,6 +19,7 @@ from app.analysis import (
 )
 from app.intelligence import (
     BrowserIntelligenceResult,
+    ExtractionWarning,
     PageAnalysisResult as DeterministicPageAnalysisResult,
     PageClassification,
     PageMetrics,
@@ -88,6 +89,32 @@ def test_successful_deterministic_only_analysis(
     browser.assert_called_once_with("https://example.com/")
     deterministic.assert_called_once_with(browser_result)
     ai_engine.analyze.assert_not_called()
+
+
+def test_browser_warnings_are_preserved_without_changing_success_status(
+    browser_result: BrowserIntelligenceResult,
+    intelligence: DeterministicPageAnalysisResult,
+) -> None:
+    browser_result.warnings.append(
+        ExtractionWarning(
+            category="metadata",
+            code="metadata_extraction_failed",
+            message="Page metadata could not be extracted.",
+        )
+    )
+
+    result = PageAnalysisService(
+        Mock(return_value=browser_result),
+        Mock(return_value=intelligence),
+    ).analyze(PageAnalysisRequest(url="https://example.com"))
+
+    assert result.status is AnalysisStatus.SUCCESS
+    assert result.browser_result is browser_result
+    assert result.browser_result.warnings == browser_result.warnings
+    assert result.errors == []
+    assert "metadata_extraction_failed" not in [
+        error.code for error in result.errors
+    ]
 
 
 def test_successful_ai_analysis(
