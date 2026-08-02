@@ -3,7 +3,11 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.api.main import app
-from app.intelligence.models import BrowserIntelligenceResult, PageMetrics
+from app.intelligence.models import (
+    BrowserIntelligenceResult,
+    ExtractionWarning,
+    PageMetrics,
+)
 
 
 client = TestClient(app)
@@ -19,6 +23,13 @@ def test_intelligence_analyze_endpoint_returns_structured_result() -> None:
         status_code=200,
         success=True,
         metrics=PageMetrics(load_time_ms=125),
+        warnings=[
+            ExtractionWarning(
+                category="metadata",
+                code="metadata_extraction_failed",
+                message="Page metadata could not be extracted.",
+            )
+        ],
     )
 
     with patch(
@@ -40,6 +51,13 @@ def test_intelligence_analyze_endpoint_returns_structured_result() -> None:
     assert response_body["headings"] == []
     assert response_body["links"] == []
     assert response_body["metrics"]["load_time_ms"] == 125
+    assert response_body["warnings"] == [
+        {
+            "category": "metadata",
+            "code": "metadata_extraction_failed",
+            "message": "Page metadata could not be extracted.",
+        }
+    ]
 
     mocked_analyze.assert_called_once_with("https://example.com/")
 

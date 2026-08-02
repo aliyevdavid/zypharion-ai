@@ -20,6 +20,7 @@ from app.analysis import (
 from app.api.main import app, get_page_analysis_service
 from app.intelligence import (
     BrowserIntelligenceResult,
+    ExtractionWarning,
     PageAnalysisResult as DeterministicPageAnalysisResult,
     PageClassification,
     PageMetrics,
@@ -88,6 +89,39 @@ def test_valid_request_uses_overridden_service_once(
     assert isinstance(request, PageAnalysisRequest)
     assert str(request.url) == "https://example.com/"
     assert request.use_ai is False
+
+
+def test_application_api_serializes_browser_warnings_without_errors(
+    client_and_service: tuple[TestClient, Mock],
+    browser_result: BrowserIntelligenceResult,
+    deterministic_result: DeterministicPageAnalysisResult,
+) -> None:
+    client, service = client_and_service
+    browser_result.warnings.append(
+        ExtractionWarning(
+            category="buttons",
+            code="buttons_extraction_failed",
+            message="Button content could not be extracted.",
+        )
+    )
+    service.analyze.return_value = PageAnalysisResult(
+        url="https://example.com/",
+        status=AnalysisStatus.SUCCESS,
+        browser_result=browser_result,
+        intelligence=deterministic_result,
+    )
+
+    response = client.post(
+        "/api/v1/analyze",
+        json={"url": "https://example.com"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert response.json()["browser_result"]["warnings"][0]["code"] == (
+        "buttons_extraction_failed"
+    )
+    assert response.json()["errors"] == []
 
 
 def test_successful_ai_response_is_serialized(
