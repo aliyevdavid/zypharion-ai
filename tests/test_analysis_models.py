@@ -10,6 +10,11 @@ from app.intelligence.analysis_models import (
     PageClassification,
     PageType,
 )
+from app.intelligence.evidence_models import (
+    EvidenceItem,
+    EvidenceSource,
+    EvidenceType,
+)
 
 
 def _build_page_analysis_result() -> PageAnalysisResult:
@@ -49,6 +54,51 @@ def test_page_classification_accepts_valid_confidence() -> None:
     assert classification.page_type == PageType.AUTHENTICATION
     assert classification.confidence == 0.95
     assert len(classification.evidence) == 2
+
+
+def test_page_classification_serializes_structured_evidence() -> None:
+    classification = PageClassification(
+        page_type=PageType.AUTHENTICATION,
+        confidence=0.95,
+        evidence=["Password input detected"],
+        structured_evidence=[
+            EvidenceItem(
+                type=EvidenceType.STRUCTURE,
+                source=EvidenceSource.DETERMINISTIC,
+                description="Password input detected",
+            )
+        ],
+    )
+
+    assert classification.model_dump(mode="json") == {
+        "page_type": "authentication",
+        "confidence": 0.95,
+        "evidence": ["Password input detected"],
+        "structured_evidence": [
+            {
+                "type": "structure",
+                "source": "deterministic",
+                "description": "Password input detected",
+                "confidence": None,
+                "severity": None,
+            }
+        ],
+    }
+
+
+def test_page_classification_structured_evidence_defaults_are_not_shared() -> None:
+    first = PageClassification(page_type=PageType.UNKNOWN, confidence=0.25)
+    second = PageClassification(page_type=PageType.UNKNOWN, confidence=0.25)
+
+    first.structured_evidence.append(
+        EvidenceItem(
+            type=EvidenceType.STRUCTURE,
+            source=EvidenceSource.DETERMINISTIC,
+            description="Observed signal",
+        )
+    )
+
+    assert second.structured_evidence == []
 
 
 def test_page_classification_rejects_confidence_above_one() -> None:

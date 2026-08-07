@@ -19,6 +19,9 @@ from app.analysis import (
 )
 from app.intelligence import (
     BrowserIntelligenceResult,
+    EvidenceItem,
+    EvidenceSource,
+    EvidenceType,
     ExtractionWarning,
     PageAnalysisResult as DeterministicPageAnalysisResult,
     PageClassification,
@@ -49,6 +52,13 @@ def intelligence() -> DeterministicPageAnalysisResult:
             page_type=PageType.MARKETING,
             confidence=0.8,
             evidence=["Prominent heading content detected"],
+            structured_evidence=[
+                EvidenceItem(
+                    type=EvidenceType.STRUCTURE,
+                    source=EvidenceSource.DETERMINISTIC,
+                    description="Prominent heading content detected",
+                )
+            ],
         ),
         detected_features=["navigation_links"],
     )
@@ -83,6 +93,9 @@ def test_successful_deterministic_only_analysis(
     assert result.url == "https://example.com/"
     assert result.browser_result is browser_result
     assert result.intelligence is intelligence
+    assert result.intelligence.classification.structured_evidence is (
+        intelligence.classification.structured_evidence
+    )
     assert result.ai_intelligence is None
     assert result.errors == []
     assert result.duration_ms is not None and result.duration_ms >= 0

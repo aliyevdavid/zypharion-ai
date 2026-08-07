@@ -8,6 +8,11 @@ from app.intelligence.analysis_models import (
     PageClassification,
     PageType,
 )
+from app.intelligence.evidence_models import (
+    EvidenceItem,
+    EvidenceSource,
+    EvidenceType,
+)
 from app.intelligence.models import BrowserIntelligenceResult
 
 
@@ -16,6 +21,40 @@ class ClassificationCandidate:
     page_type: PageType
     score: int
     evidence: list[str]
+
+
+_EVIDENCE_TYPES: dict[str, EvidenceType] = {
+    "Password input detected": EvidenceType.STRUCTURE,
+    "Form detected": EvidenceType.STRUCTURE,
+    "Authentication-related text detected": EvidenceType.CONTENT,
+    "Search input detected": EvidenceType.STRUCTURE,
+    "Search-related text detected": EvidenceType.CONTENT,
+    "Search placeholder detected": EvidenceType.CONTENT,
+    "Documentation-related text detected": EvidenceType.CONTENT,
+    "Multiple structured headings detected": EvidenceType.STRUCTURE,
+    "High number of navigation links detected": EvidenceType.STRUCTURE,
+    "Dashboard-related text detected": EvidenceType.CONTENT,
+    "Multiple interactive buttons detected": EvidenceType.BEHAVIOR,
+    "Multiple forms detected": EvidenceType.STRUCTURE,
+    "Multiple input fields detected": EvidenceType.STRUCTURE,
+    "Form action button detected": EvidenceType.BEHAVIOR,
+    "Marketing-related text detected": EvidenceType.CONTENT,
+    "Visual content detected": EvidenceType.STRUCTURE,
+    "Prominent heading content detected": EvidenceType.STRUCTURE,
+    "Informational page structure detected": EvidenceType.STRUCTURE,
+    "No strong classification signals detected": EvidenceType.STRUCTURE,
+}
+
+
+def _build_structured_evidence(evidence: list[str]) -> list[EvidenceItem]:
+    return [
+        EvidenceItem(
+            type=_EVIDENCE_TYPES[description],
+            source=EvidenceSource.DETERMINISTIC,
+            description=description,
+        )
+        for description in evidence
+    ]
 
 
 def _collect_page_text(result: BrowserIntelligenceResult) -> str:
@@ -304,16 +343,21 @@ def _classify_page(
     )
 
     if best_candidate.score == 0:
+        evidence = ["No strong classification signals detected"]
         return PageClassification(
             page_type=PageType.UNKNOWN,
             confidence=0.25,
-            evidence=["No strong classification signals detected"],
+            evidence=evidence,
+            structured_evidence=_build_structured_evidence(evidence),
         )
 
     return PageClassification(
         page_type=best_candidate.page_type,
         confidence=_calculate_confidence(best_candidate.score),
         evidence=best_candidate.evidence,
+        structured_evidence=_build_structured_evidence(
+            best_candidate.evidence
+        ),
     )
 
 
