@@ -1,6 +1,10 @@
-from unittest.mock import MagicMock
+from contextlib import ExitStack
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from app.intelligence.extractor import (
+    _PageMetadata,
     _extract_buttons,
     _extract_forms,
     _extract_headings,
@@ -10,13 +14,84 @@ from app.intelligence.extractor import (
     analyze_page,
 )
 from app.intelligence.models import (
+    BrowserIntelligenceResult,
     ButtonInfo,
     FormInfo,
     HeadingInfo,
     ImageInfo,
     InputInfo,
     LinkInfo,
+    PageMetrics,
 )
+
+
+def _run_mocked_analysis(
+    failures: set[str] | None = None,
+) -> tuple[BrowserIntelligenceResult, MagicMock]:
+    failures = failures or set()
+    page = MagicMock()
+    page.url = "https://example.test/final"
+    response = MagicMock(status=200, ok=True)
+    page.goto.return_value = response
+    browser = MagicMock()
+    browser.new_page.return_value = page
+    playwright = MagicMock()
+    playwright.chromium.launch.return_value = browser
+    manager = MagicMock()
+    manager.__enter__.return_value = playwright
+
+    values = {
+        "_extract_metadata": _PageMetadata(
+            "Example",
+            "Description",
+            "https://example.test/canonical",
+        ),
+        "_extract_headings": [HeadingInfo(level=1, text="Kept heading")],
+        "_extract_links": [
+            LinkInfo(
+                text="Kept link",
+                href="https://example.test/link",
+                is_external=False,
+            )
+        ],
+        "_extract_images": [
+            ImageInfo(
+                src="https://example.test/image.png",
+                alt="Kept image",
+            )
+        ],
+        "_extract_forms": [
+            FormInfo(
+                action="https://example.test/submit",
+                method="post",
+            )
+        ],
+        "_extract_buttons": [ButtonInfo(text="Kept button", button_type="button")],
+        "_extract_inputs": [InputInfo(name="kept", input_type="text")],
+        "_extract_console_errors": ["kept console error"],
+        "_extract_metrics": PageMetrics(load_time_ms=12),
+    }
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.intelligence.extractor.sync_playwright",
+                return_value=manager,
+            )
+        )
+        for name, value in values.items():
+            mocked = stack.enter_context(
+                patch(f"app.intelligence.extractor.{name}")
+            )
+            if name in failures:
+                mocked.side_effect = RuntimeError(
+                    f"raw secret from {name} C:\\private\\browser"
+                )
+            else:
+                mocked.return_value = value
+        result = analyze_page("https://example.test")
+
+    return result, browser
 
 
 def test_extract_buttons_builds_button_info_from_ordered_snapshot() -> None:
@@ -168,6 +243,164 @@ def test_extract_headings_preserves_level_grouped_order() -> None:
         "h5",
         "h6",
     ]
+
+
+def test_analyze_page_all_categories_succeed_without_warnings() -> None:
+    result, browser = _run_mocked_analysis()
+
+    assert result.success is True
+    assert result.warnings == []
+    assert result.title == "Example"
+    assert result.headings[0].text == "Kept heading"
+    assert result.links[0].text == "Kept link"
+    assert result.images[0].alt == "Kept image"
+    assert result.forms[0].method == "post"
+    assert result.buttons[0].text == "Kept button"
+    assert result.inputs[0].name == "kept"
+    assert result.console_errors == ["kept console error"]
+    assert result.metrics.load_time_ms == 12
+    browser.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    ("operation", "field", "category", "code", "message"),
+    [
+        (
+            "_extract_metadata",
+            "title",
+            "metadata",
+            "metadata_extraction_failed",
+            "Page metadata could not be extracted.",
+        ),
+        (
+            "_extract_headings",
+            "headings",
+            "headings",
+            "headings_extraction_failed",
+            "Heading content could not be extracted.",
+        ),
+        (
+            "_extract_links",
+            "links",
+            "links",
+            "links_extraction_failed",
+            "Link content could not be extracted.",
+        ),
+        (
+            "_extract_images",
+            "images",
+            "images",
+            "images_extraction_failed",
+            "Image content could not be extracted.",
+        ),
+        (
+            "_extract_forms",
+            "forms",
+            "forms",
+            "forms_extraction_failed",
+            "Form content could not be extracted.",
+        ),
+        (
+            "_extract_buttons",
+            "buttons",
+            "buttons",
+            "buttons_extraction_failed",
+            "Button content could not be extracted.",
+        ),
+        (
+            "_extract_inputs",
+            "inputs",
+            "inputs",
+            "inputs_extraction_failed",
+            "Input content could not be extracted.",
+        ),
+        (
+            "_extract_console_errors",
+            "console_errors",
+            "console",
+            "console_extraction_failed",
+            "Console errors could not be extracted.",
+        ),
+    ],
+)
+def test_localized_collection_failure_uses_safe_fallback_and_warning(
+    operation: str,
+    field: str,
+    category: str,
+    code: str,
+    message: str,
+) -> None:
+    result, browser = _run_mocked_analysis({operation})
+
+    assert result.success is True
+    assert getattr(result, field) in ("", [])
+    assert result.headings or field == "headings"
+    assert result.links or field == "links"
+    assert result.warnings[0].model_dump(mode="json") == {
+        "category": category,
+        "code": code,
+        "message": message,
+    }
+    serialized = result.model_dump_json()
+    assert "raw secret" not in serialized
+    assert "private" not in serialized
+    browser.close.assert_called_once_with()
+
+
+def test_metrics_failure_returns_valid_fallback_and_warning() -> None:
+    result, _ = _run_mocked_analysis({"_extract_metrics"})
+
+    assert result.success is True
+    assert result.metrics == PageMetrics(load_time_ms=0)
+    assert result.warnings[0].category.value == "metrics"
+    assert result.warnings[0].code.value == "metrics_extraction_failed"
+
+
+def test_multiple_failures_produce_ordered_distinct_warnings() -> None:
+    result, _ = _run_mocked_analysis(
+        {"_extract_metadata", "_extract_links", "_extract_metrics"}
+    )
+
+    assert [warning.category.value for warning in result.warnings] == [
+        "metadata",
+        "links",
+        "metrics",
+    ]
+    assert len({warning.code for warning in result.warnings}) == 3
+    assert result.headings[0].text == "Kept heading"
+    assert result.images[0].alt == "Kept image"
+
+
+def test_warning_and_fallback_lists_are_fresh_per_analysis() -> None:
+    first, _ = _run_mocked_analysis({"_extract_links"})
+    second, _ = _run_mocked_analysis({"_extract_links"})
+
+    first.links.append(
+        LinkInfo(text="New", href="https://example.test/new", is_external=False)
+    )
+    first.warnings.clear()
+
+    assert second.links == []
+    assert len(second.warnings) == 1
+
+
+def test_navigation_failure_remains_complete_failure_and_cleans_up() -> None:
+    page = MagicMock()
+    page.goto.side_effect = RuntimeError("navigation failed")
+    browser = MagicMock()
+    browser.new_page.return_value = page
+    playwright = MagicMock()
+    playwright.chromium.launch.return_value = browser
+    manager = MagicMock()
+    manager.__enter__.return_value = playwright
+
+    with patch(
+        "app.intelligence.extractor.sync_playwright",
+        return_value=manager,
+    ), pytest.raises(RuntimeError, match="navigation failed"):
+        analyze_page("https://example.test")
+
+    browser.close.assert_called_once_with()
 
 
 def test_analyze_page_extracts_example_domain_metadata() -> None:
