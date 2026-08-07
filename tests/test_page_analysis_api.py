@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.api.main import app
 from app.intelligence.analysis_models import (
+    IntelligenceExplanation,
     PageAnalysisResult,
     PageClassification,
     PageType,
@@ -47,6 +48,21 @@ def test_page_analysis_endpoint_returns_explainable_result() -> None:
                     "Informational page structure detected",
                 )
             ],
+            explanation=IntelligenceExplanation(
+                conclusion="marketing",
+                confidence=0.75,
+                evidence=[
+                    EvidenceItem(
+                        type=EvidenceType.STRUCTURE,
+                        source=EvidenceSource.DETERMINISTIC,
+                        description=description,
+                    )
+                    for description in (
+                        "Prominent heading content detected",
+                        "Informational page structure detected",
+                    )
+                ],
+            ),
         ),
         detected_features=[
             "navigation_links",
@@ -97,6 +113,24 @@ def test_page_analysis_endpoint_returns_explainable_result() -> None:
                 "Informational page structure detected",
             )
         ],
+        "explanation": {
+            "conclusion": "marketing",
+            "confidence": 0.75,
+            "evidence": [
+                {
+                    "type": "structure",
+                    "source": "deterministic",
+                    "description": description,
+                    "confidence": None,
+                    "severity": None,
+                }
+                for description in (
+                    "Prominent heading content detected",
+                    "Informational page structure detected",
+                )
+            ],
+            "uncertainty": None,
+        },
     }
 
     assert response_body["detected_features"] == [

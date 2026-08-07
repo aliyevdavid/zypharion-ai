@@ -1,5 +1,6 @@
 from app.intelligence.analysis_models import (
     AnalysisFinding,
+    IntelligenceExplanation,
     PageAnalysisRequest,
     PageAnalysisResult,
     PageClassification,
@@ -41,6 +42,7 @@ __all__ = [
     "FormInfo",
     "HeadingInfo",
     "ImageInfo",
+    "IntelligenceExplanation",
     "InputInfo",
     "LinkInfo",
     "PageAnalysisRequest",

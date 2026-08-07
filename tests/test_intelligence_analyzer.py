@@ -83,6 +83,17 @@ def test_analyzer_classifies_authentication_page() -> None:
         and item.confidence is None
         for item in analysis.classification.structured_evidence
     )
+    explanation = analysis.classification.explanation
+    assert explanation is not None
+    assert explanation.conclusion == analysis.classification.page_type.value
+    assert explanation.confidence == analysis.classification.confidence
+    assert explanation.evidence == analysis.classification.structured_evidence
+    assert [item.description for item in explanation.evidence] == [
+        "Password input detected",
+        "Form detected",
+        "Authentication-related text detected",
+    ]
+    assert explanation.uncertainty is None
     assert "password_input" in analysis.detected_features
     assert "forms" in analysis.detected_features
 
@@ -174,6 +185,10 @@ def test_analyzer_uses_unknown_when_no_signals_exist() -> None:
         EvidenceType.STRUCTURE
     )
     assert analysis.classification.structured_evidence[0].confidence is None
+    assert analysis.classification.explanation is not None
+    assert analysis.classification.explanation.uncertainty == (
+        "No strong classification signals were detected."
+    )
 
 
 def test_structured_evidence_is_deterministic_and_not_shared() -> None:
@@ -195,6 +210,12 @@ def test_structured_evidence_is_deterministic_and_not_shared() -> None:
     assert [
         item.type for item in first.classification.structured_evidence
     ] == [EvidenceType.CONTENT, EvidenceType.BEHAVIOR]
+    assert first.classification.explanation == second.classification.explanation
+    assert first.classification.explanation is not None
+    assert second.classification.explanation is not None
+    assert first.classification.explanation.evidence is not (
+        second.classification.explanation.evidence
+    )
 
 
 def test_analyzer_accepts_browser_result_with_extraction_warning() -> None:

@@ -23,6 +23,7 @@ from app.intelligence import (
     EvidenceSource,
     EvidenceType,
     ExtractionWarning,
+    IntelligenceExplanation,
     PageAnalysisResult as DeterministicPageAnalysisResult,
     PageClassification,
     PageMetrics,
@@ -59,6 +60,17 @@ def intelligence() -> DeterministicPageAnalysisResult:
                     description="Prominent heading content detected",
                 )
             ],
+            explanation=IntelligenceExplanation(
+                conclusion="marketing",
+                confidence=0.8,
+                evidence=[
+                    EvidenceItem(
+                        type=EvidenceType.STRUCTURE,
+                        source=EvidenceSource.DETERMINISTIC,
+                        description="Prominent heading content detected",
+                    )
+                ],
+            ),
         ),
         detected_features=["navigation_links"],
     )
@@ -95,6 +107,9 @@ def test_successful_deterministic_only_analysis(
     assert result.intelligence is intelligence
     assert result.intelligence.classification.structured_evidence is (
         intelligence.classification.structured_evidence
+    )
+    assert result.intelligence.classification.explanation is (
+        intelligence.classification.explanation
     )
     assert result.ai_intelligence is None
     assert result.errors == []
