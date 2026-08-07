@@ -20,6 +20,9 @@ from app.analysis import (
 from app.api.main import app, get_page_analysis_service
 from app.intelligence import (
     BrowserIntelligenceResult,
+    EvidenceItem,
+    EvidenceSource,
+    EvidenceType,
     ExtractionWarning,
     PageAnalysisResult as DeterministicPageAnalysisResult,
     PageClassification,
@@ -49,6 +52,13 @@ def deterministic_result() -> DeterministicPageAnalysisResult:
             page_type=PageType.MARKETING,
             confidence=0.8,
             evidence=["Informational page structure detected"],
+            structured_evidence=[
+                EvidenceItem(
+                    type=EvidenceType.STRUCTURE,
+                    source=EvidenceSource.DETERMINISTIC,
+                    description="Informational page structure detected",
+                )
+            ],
         ),
     )
 
@@ -84,6 +94,9 @@ def test_valid_request_uses_overridden_service_once(
 
     assert response.status_code == 200
     assert response.json() == result.model_dump(mode="json")
+    assert response.json()["intelligence"]["classification"][
+        "structured_evidence"
+    ][0]["source"] == "deterministic"
     service.analyze.assert_called_once()
     request = service.analyze.call_args.args[0]
     assert isinstance(request, PageAnalysisRequest)

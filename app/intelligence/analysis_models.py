@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, HttpUrl
 
+from app.intelligence.evidence_models import EvidenceItem
+
 
 class PageType(StrEnum):
     """
@@ -36,6 +38,7 @@ class PageClassification(BaseModel):
     page_type: PageType
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: list[str] = Field(default_factory=list)
+    structured_evidence: list[EvidenceItem] = Field(default_factory=list)
 
 
 class PageAnalysisRequest(BaseModel):

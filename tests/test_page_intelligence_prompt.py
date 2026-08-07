@@ -11,6 +11,11 @@ from app.intelligence.analysis_models import (
     PageClassification,
     PageType,
 )
+from app.intelligence.evidence_models import (
+    EvidenceItem,
+    EvidenceSource,
+    EvidenceType,
+)
 
 
 def _build_analysis() -> PageAnalysisResult:
@@ -22,6 +27,13 @@ def _build_analysis() -> PageAnalysisResult:
             page_type=PageType.DASHBOARD,
             confidence=0.85,
             evidence=["Dashboard-related text detected"],
+            structured_evidence=[
+                EvidenceItem(
+                    type=EvidenceType.CONTENT,
+                    source=EvidenceSource.DETERMINISTIC,
+                    description="Dashboard-related text detected",
+                )
+            ],
         ),
         detected_features=["interactive_buttons"],
         findings=[
@@ -151,6 +163,15 @@ def test_prompt_builder_includes_only_relevant_analysis_data() -> None:
             "confidence": 0.85,
             "evidence": ["Dashboard-related text detected"],
             "page_type": "dashboard",
+            "structured_evidence": [
+                {
+                    "confidence": None,
+                    "description": "Dashboard-related text detected",
+                    "severity": None,
+                    "source": "deterministic",
+                    "type": "content",
+                }
+            ],
         },
         "deterministic_recommendations": [
             "Investigate browser console errors"

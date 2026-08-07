@@ -1,5 +1,6 @@
 from app.intelligence.analysis_models import PageType
 from app.intelligence.analyzer import analyze_browser_intelligence
+from app.intelligence.evidence_models import EvidenceSource, EvidenceType
 from app.intelligence.models import (
     BrowserIntelligenceResult,
     ButtonInfo,
@@ -60,8 +61,28 @@ def test_analyzer_classifies_authentication_page() -> None:
     analysis = analyze_browser_intelligence(browser_result)
 
     assert analysis.classification.page_type == PageType.AUTHENTICATION
-    assert analysis.classification.confidence > 0.5
-    assert "Password input detected" in analysis.classification.evidence
+    assert analysis.classification.confidence == 0.95
+    assert analysis.classification.evidence == [
+        "Password input detected",
+        "Form detected",
+        "Authentication-related text detected",
+    ]
+    assert [
+        item.description
+        for item in analysis.classification.structured_evidence
+    ] == analysis.classification.evidence
+    assert [
+        item.type for item in analysis.classification.structured_evidence
+    ] == [
+        EvidenceType.STRUCTURE,
+        EvidenceType.STRUCTURE,
+        EvidenceType.CONTENT,
+    ]
+    assert all(
+        item.source is EvidenceSource.DETERMINISTIC
+        and item.confidence is None
+        for item in analysis.classification.structured_evidence
+    )
     assert "password_input" in analysis.detected_features
     assert "forms" in analysis.detected_features
 
@@ -145,6 +166,35 @@ def test_analyzer_uses_unknown_when_no_signals_exist() -> None:
     assert analysis.classification.evidence == [
         "No strong classification signals detected"
     ]
+    assert [
+        item.description
+        for item in analysis.classification.structured_evidence
+    ] == analysis.classification.evidence
+    assert analysis.classification.structured_evidence[0].type is (
+        EvidenceType.STRUCTURE
+    )
+    assert analysis.classification.structured_evidence[0].confidence is None
+
+
+def test_structured_evidence_is_deterministic_and_not_shared() -> None:
+    browser_result = _build_result(
+        title="Dashboard analytics",
+        buttons=[
+            ButtonInfo(text=f"Action {index}", button_type="button")
+            for index in range(4)
+        ],
+    )
+
+    first = analyze_browser_intelligence(browser_result)
+    second = analyze_browser_intelligence(browser_result)
+
+    assert first.classification == second.classification
+    assert first.classification.structured_evidence is not (
+        second.classification.structured_evidence
+    )
+    assert [
+        item.type for item in first.classification.structured_evidence
+    ] == [EvidenceType.CONTENT, EvidenceType.BEHAVIOR]
 
 
 def test_analyzer_accepts_browser_result_with_extraction_warning() -> None:

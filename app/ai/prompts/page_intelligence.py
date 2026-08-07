@@ -50,6 +50,10 @@ class PageIntelligencePromptBuilder:
                 "page_type": analysis.classification.page_type.value,
                 "confidence": analysis.classification.confidence,
                 "evidence": analysis.classification.evidence,
+                "structured_evidence": [
+                    item.model_dump(mode="json")
+                    for item in analysis.classification.structured_evidence
+                ],
             },
             "detected_features": analysis.detected_features,
             "findings": [

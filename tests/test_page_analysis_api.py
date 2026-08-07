@@ -9,6 +9,11 @@ from app.intelligence.analysis_models import (
     PageClassification,
     PageType,
 )
+from app.intelligence.evidence_models import (
+    EvidenceItem,
+    EvidenceSource,
+    EvidenceType,
+)
 
 
 client = TestClient(app)
@@ -30,6 +35,17 @@ def test_page_analysis_endpoint_returns_explainable_result() -> None:
             evidence=[
                 "Prominent heading content detected",
                 "Informational page structure detected",
+            ],
+            structured_evidence=[
+                EvidenceItem(
+                    type=EvidenceType.STRUCTURE,
+                    source=EvidenceSource.DETERMINISTIC,
+                    description=description,
+                )
+                for description in (
+                    "Prominent heading content detected",
+                    "Informational page structure detected",
+                )
             ],
         ),
         detected_features=[
@@ -67,6 +83,19 @@ def test_page_analysis_endpoint_returns_explainable_result() -> None:
         "evidence": [
             "Prominent heading content detected",
             "Informational page structure detected",
+        ],
+        "structured_evidence": [
+            {
+                "type": "structure",
+                "source": "deterministic",
+                "description": description,
+                "confidence": None,
+                "severity": None,
+            }
+            for description in (
+                "Prominent heading content detected",
+                "Informational page structure detected",
+            )
         ],
     }
 
