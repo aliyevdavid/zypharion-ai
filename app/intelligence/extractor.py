@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from time import perf_counter
+from typing import NamedTuple, TypeVar
 from urllib.parse import urljoin, urlparse
 
 from playwright.sync_api import Page, sync_playwright
@@ -9,6 +11,9 @@ from app.core.settings import get_settings
 from app.intelligence.models import (
     BrowserIntelligenceResult,
     ButtonInfo,
+    ExtractionCategory,
+    ExtractionWarning,
+    ExtractionWarningCode,
     FormInfo,
     HeadingInfo,
     ImageInfo,
@@ -16,6 +21,38 @@ from app.intelligence.models import (
     LinkInfo,
     PageMetrics,
 )
+
+
+T = TypeVar("T")
+
+
+class _PageMetadata(NamedTuple):
+    title: str
+    meta_description: str | None
+    canonical_url: str | None
+
+
+def _extract_category(
+    *,
+    category: ExtractionCategory,
+    code: ExtractionWarningCode,
+    safe_message: str,
+    operation: Callable[[], T],
+    fallback_factory: Callable[[], T],
+    warnings: list[ExtractionWarning],
+) -> T:
+    """Run one localized extraction operation with a safe fresh fallback."""
+    try:
+        return operation()
+    except Exception:
+        warnings.append(
+            ExtractionWarning(
+                category=category,
+                code=code,
+                message=safe_message,
+            )
+        )
+        return fallback_factory()
 
 
 def _normalize_text(value: str | None) -> str:
@@ -239,12 +276,46 @@ def _extract_inputs(page: Page) -> list[InputInfo]:
     return inputs
 
 
+def _extract_metadata(page: Page) -> _PageMetadata:
+    meta_description = _get_optional_attribute(
+        page=page,
+        selector='meta[name="description"]',
+        attribute_name="content",
+    )
+    raw_canonical_url = _get_optional_attribute(
+        page=page,
+        selector='link[rel="canonical"]',
+        attribute_name="href",
+    )
+    canonical_url = (
+        urljoin(page.url, raw_canonical_url)
+        if raw_canonical_url
+        else None
+    )
+    return _PageMetadata(
+        title=page.title(),
+        meta_description=meta_description,
+        canonical_url=canonical_url,
+    )
+
+
+def _extract_console_errors(console_errors: list[str]) -> list[str]:
+    return list(console_errors)
+
+
+def _extract_metrics(started_at: float) -> PageMetrics:
+    return PageMetrics(
+        load_time_ms=max(0, round((perf_counter() - started_at) * 1000))
+    )
+
+
 def analyze_page(url: str) -> BrowserIntelligenceResult:
     """
     Open a page with Playwright and return structured browser intelligence.
     """
     settings = get_settings()
     console_errors: list[str] = []
+    warnings: list[ExtractionWarning] = []
 
     started_at = perf_counter()
 
@@ -272,45 +343,96 @@ def analyze_page(url: str) -> BrowserIntelligenceResult:
                 timeout=settings.playwright_timeout_ms,
             )
 
-            meta_description = _get_optional_attribute(
-                page=page,
-                selector='meta[name="description"]',
-                attribute_name="content",
+            metadata = _extract_category(
+                category=ExtractionCategory.METADATA,
+                code=ExtractionWarningCode.METADATA_EXTRACTION_FAILED,
+                safe_message="Page metadata could not be extracted.",
+                operation=lambda: _extract_metadata(page),
+                fallback_factory=lambda: _PageMetadata("", None, None),
+                warnings=warnings,
             )
-
-            raw_canonical_url = _get_optional_attribute(
-                page=page,
-                selector='link[rel="canonical"]',
-                attribute_name="href",
+            headings = _extract_category(
+                category=ExtractionCategory.HEADINGS,
+                code=ExtractionWarningCode.HEADINGS_EXTRACTION_FAILED,
+                safe_message="Heading content could not be extracted.",
+                operation=lambda: _extract_headings(page),
+                fallback_factory=list,
+                warnings=warnings,
             )
-
-            canonical_url = (
-                urljoin(page.url, raw_canonical_url)
-                if raw_canonical_url
-                else None
+            links = _extract_category(
+                category=ExtractionCategory.LINKS,
+                code=ExtractionWarningCode.LINKS_EXTRACTION_FAILED,
+                safe_message="Link content could not be extracted.",
+                operation=lambda: _extract_links(page),
+                fallback_factory=list,
+                warnings=warnings,
+            )
+            images = _extract_category(
+                category=ExtractionCategory.IMAGES,
+                code=ExtractionWarningCode.IMAGES_EXTRACTION_FAILED,
+                safe_message="Image content could not be extracted.",
+                operation=lambda: _extract_images(page),
+                fallback_factory=list,
+                warnings=warnings,
+            )
+            forms = _extract_category(
+                category=ExtractionCategory.FORMS,
+                code=ExtractionWarningCode.FORMS_EXTRACTION_FAILED,
+                safe_message="Form content could not be extracted.",
+                operation=lambda: _extract_forms(page),
+                fallback_factory=list,
+                warnings=warnings,
+            )
+            buttons = _extract_category(
+                category=ExtractionCategory.BUTTONS,
+                code=ExtractionWarningCode.BUTTONS_EXTRACTION_FAILED,
+                safe_message="Button content could not be extracted.",
+                operation=lambda: _extract_buttons(page),
+                fallback_factory=list,
+                warnings=warnings,
+            )
+            inputs = _extract_category(
+                category=ExtractionCategory.INPUTS,
+                code=ExtractionWarningCode.INPUTS_EXTRACTION_FAILED,
+                safe_message="Input content could not be extracted.",
+                operation=lambda: _extract_inputs(page),
+                fallback_factory=list,
+                warnings=warnings,
+            )
+            extracted_console_errors = _extract_category(
+                category=ExtractionCategory.CONSOLE,
+                code=ExtractionWarningCode.CONSOLE_EXTRACTION_FAILED,
+                safe_message="Console errors could not be extracted.",
+                operation=lambda: _extract_console_errors(console_errors),
+                fallback_factory=list,
+                warnings=warnings,
+            )
+            metrics = _extract_category(
+                category=ExtractionCategory.METRICS,
+                code=ExtractionWarningCode.METRICS_EXTRACTION_FAILED,
+                safe_message="Page metrics could not be extracted.",
+                operation=lambda: _extract_metrics(started_at),
+                fallback_factory=lambda: PageMetrics(load_time_ms=0),
+                warnings=warnings,
             )
 
             return BrowserIntelligenceResult(
                 requested_url=url,
                 final_url=page.url,
-                title=page.title(),
-                meta_description=meta_description,
-                canonical_url=canonical_url,
+                title=metadata.title,
+                meta_description=metadata.meta_description,
+                canonical_url=metadata.canonical_url,
                 status_code=response.status if response else None,
                 success=response.ok if response else False,
-                headings=_extract_headings(page),
-                links=_extract_links(page),
-                images=_extract_images(page),
-                forms=_extract_forms(page),
-                buttons=_extract_buttons(page),
-                inputs=_extract_inputs(page),
-                console_errors=console_errors,
-                metrics=PageMetrics(
-                    load_time_ms=max(
-                        0,
-                        round((perf_counter() - started_at) * 1000),
-                    )
-                ),
+                headings=headings,
+                links=links,
+                images=images,
+                forms=forms,
+                buttons=buttons,
+                inputs=inputs,
+                console_errors=extracted_console_errors,
+                metrics=metrics,
+                warnings=warnings,
             )
         finally:
             browser.close()
