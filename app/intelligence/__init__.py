@@ -7,6 +7,11 @@ from app.intelligence.analysis_models import (
     PageType,
 )
 from app.intelligence.analyzer import analyze_browser_intelligence
+from app.intelligence.behavior_models import (
+    ApplicationBehavior,
+    BehaviorSource,
+    BehaviorType,
+)
 from app.intelligence.evidence_models import (
     EvidenceItem,
     EvidenceSource,
@@ -30,6 +35,9 @@ from app.intelligence.models import (
 
 __all__ = [
     "AnalysisFinding",
+    "ApplicationBehavior",
+    "BehaviorSource",
+    "BehaviorType",
     "BrowserIntelligenceRequest",
     "BrowserIntelligenceResult",
     "ButtonInfo",
