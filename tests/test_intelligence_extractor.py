@@ -11,6 +11,7 @@ from app.intelligence.extractor import (
     _extract_images,
     _extract_inputs,
     _extract_links,
+    _extract_metadata,
     analyze_page,
 )
 from app.intelligence.models import (
@@ -27,6 +28,7 @@ from app.intelligence.models import (
 
 def _run_mocked_analysis(
     failures: set[str] | None = None,
+    metadata: _PageMetadata | None = None,
 ) -> tuple[BrowserIntelligenceResult, MagicMock]:
     failures = failures or set()
     page = MagicMock()
@@ -41,7 +43,8 @@ def _run_mocked_analysis(
     manager.__enter__.return_value = playwright
 
     values = {
-        "_extract_metadata": _PageMetadata(
+        "_extract_metadata": metadata
+        or _PageMetadata(
             "Example",
             "Description",
             "https://example.test/canonical",
@@ -245,6 +248,120 @@ def test_extract_headings_preserves_level_grouped_order() -> None:
     ]
 
 
+def _metadata_page(
+    *,
+    title: str = "Example",
+    description: str | None = "Description",
+    canonical: str | None = "/canonical",
+) -> MagicMock:
+    page = MagicMock()
+    page.url = "https://example.test/final"
+    page.title.return_value = title
+
+    def locator(selector: str) -> MagicMock:
+        value = (
+            description
+            if selector == 'meta[name="description"]'
+            else canonical
+        )
+        result = MagicMock()
+        result.count.return_value = 0 if value is None else 1
+        result.first.get_attribute.return_value = value
+        return result
+
+    page.locator.side_effect = locator
+    return page
+
+
+def test_extract_metadata_preserves_all_successful_values() -> None:
+    metadata = _extract_metadata(_metadata_page())
+
+    assert metadata == _PageMetadata(
+        "Example",
+        "Description",
+        "https://example.test/canonical",
+    )
+
+
+@pytest.mark.parametrize(
+    ("failed_operation", "expected"),
+    [
+        (
+            "title",
+            _PageMetadata(
+                "",
+                "Description",
+                "https://example.test/canonical",
+                True,
+            ),
+        ),
+        (
+            "description",
+            _PageMetadata(
+                "Example",
+                None,
+                "https://example.test/canonical",
+                True,
+            ),
+        ),
+        (
+            "canonical",
+            _PageMetadata("Example", "Description", None, True),
+        ),
+    ],
+)
+def test_extract_metadata_isolates_sub_field_failures(
+    failed_operation: str,
+    expected: _PageMetadata,
+) -> None:
+    page = _metadata_page()
+    if failed_operation == "title":
+        page.title.side_effect = RuntimeError("raw title secret")
+    else:
+        original_locator = page.locator.side_effect
+
+        def failing_locator(selector: str) -> MagicMock:
+            if (
+                failed_operation == "description"
+                and selector == 'meta[name="description"]'
+            ) or (
+                failed_operation == "canonical"
+                and selector == 'link[rel="canonical"]'
+            ):
+                raise RuntimeError("raw metadata secret")
+            return original_locator(selector)
+
+        page.locator.side_effect = failing_locator
+
+    assert _extract_metadata(page) == expected
+
+
+def test_extract_metadata_multiple_failures_share_failure_flag() -> None:
+    page = _metadata_page()
+    page.title.side_effect = RuntimeError("raw title secret")
+    page.locator.side_effect = RuntimeError("raw locator secret")
+
+    assert _extract_metadata(page) == _PageMetadata("", None, None, True)
+
+
+@pytest.mark.parametrize("missing_field", ["description", "canonical"])
+def test_extract_metadata_normal_absence_is_not_failure(
+    missing_field: str,
+) -> None:
+    page = _metadata_page(
+        description=None if missing_field == "description" else "Description",
+        canonical=None if missing_field == "canonical" else "/canonical",
+    )
+
+    metadata = _extract_metadata(page)
+
+    assert metadata.extraction_failed is False
+    assert getattr(
+        metadata,
+        "meta_description" if missing_field == "description" else "canonical_url",
+    ) is None
+
+
 def test_analyze_page_all_categories_succeed_without_warnings() -> None:
     result, browser = _run_mocked_analysis()
 
@@ -262,6 +379,59 @@ def test_analyze_page_all_categories_succeed_without_warnings() -> None:
     browser.close.assert_called_once_with()
 
 
+def test_metadata_sub_failure_preserves_navigation_metrics_and_warning() -> None:
+    result, browser = _run_mocked_analysis(
+        metadata=_PageMetadata(
+            "",
+            "Description",
+            "https://example.test/canonical",
+            True,
+        )
+    )
+
+    assert result.requested_url == "https://example.test"
+    assert result.final_url == "https://example.test/final"
+    assert result.status_code == 200
+    assert result.success is True
+    assert result.title == ""
+    assert result.meta_description == "Description"
+    assert result.canonical_url == "https://example.test/canonical"
+    assert result.metrics == PageMetrics(load_time_ms=12)
+    assert [warning.model_dump(mode="json") for warning in result.warnings] == [
+        {
+            "category": "metadata",
+            "code": "metadata_extraction_failed",
+            "message": "Page metadata could not be fully extracted.",
+        }
+    ]
+    assert "raw" not in result.model_dump_json()
+    browser.close.assert_called_once_with()
+
+
+def test_multiple_metadata_sub_failures_produce_one_warning() -> None:
+    result, _ = _run_mocked_analysis(
+        metadata=_PageMetadata("", None, None, True)
+    )
+
+    assert [warning.category.value for warning in result.warnings] == [
+        "metadata"
+    ]
+
+
+def test_metrics_failure_is_independent_from_metadata_failure() -> None:
+    result, _ = _run_mocked_analysis(
+        {"_extract_metrics"},
+        metadata=_PageMetadata("Example", None, None, True),
+    )
+
+    assert result.title == "Example"
+    assert result.metrics == PageMetrics(load_time_ms=0)
+    assert [warning.category.value for warning in result.warnings] == [
+        "metadata",
+        "metrics",
+    ]
+
+
 @pytest.mark.parametrize(
     ("operation", "field", "category", "code", "message"),
     [
@@ -270,7 +440,7 @@ def test_analyze_page_all_categories_succeed_without_warnings() -> None:
             "title",
             "metadata",
             "metadata_extraction_failed",
-            "Page metadata could not be extracted.",
+            "Page metadata could not be fully extracted.",
         ),
         (
             "_extract_headings",

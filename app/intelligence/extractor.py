@@ -30,6 +30,7 @@ class _PageMetadata(NamedTuple):
     title: str
     meta_description: str | None
     canonical_url: str | None
+    extraction_failed: bool = False
 
 
 def _extract_category(
@@ -277,25 +278,44 @@ def _extract_inputs(page: Page) -> list[InputInfo]:
 
 
 def _extract_metadata(page: Page) -> _PageMetadata:
-    meta_description = _get_optional_attribute(
-        page=page,
-        selector='meta[name="description"]',
-        attribute_name="content",
-    )
-    raw_canonical_url = _get_optional_attribute(
-        page=page,
-        selector='link[rel="canonical"]',
-        attribute_name="href",
-    )
-    canonical_url = (
-        urljoin(page.url, raw_canonical_url)
-        if raw_canonical_url
-        else None
-    )
+    extraction_failed = False
+
+    try:
+        title = page.title()
+    except Exception:
+        title = ""
+        extraction_failed = True
+
+    try:
+        meta_description = _get_optional_attribute(
+            page=page,
+            selector='meta[name="description"]',
+            attribute_name="content",
+        )
+    except Exception:
+        meta_description = None
+        extraction_failed = True
+
+    try:
+        raw_canonical_url = _get_optional_attribute(
+            page=page,
+            selector='link[rel="canonical"]',
+            attribute_name="href",
+        )
+        canonical_url = (
+            urljoin(page.url, raw_canonical_url)
+            if raw_canonical_url
+            else None
+        )
+    except Exception:
+        canonical_url = None
+        extraction_failed = True
+
     return _PageMetadata(
-        title=page.title(),
+        title=title,
         meta_description=meta_description,
         canonical_url=canonical_url,
+        extraction_failed=extraction_failed,
     )
 
 
@@ -346,11 +366,23 @@ def analyze_page(url: str) -> BrowserIntelligenceResult:
             metadata = _extract_category(
                 category=ExtractionCategory.METADATA,
                 code=ExtractionWarningCode.METADATA_EXTRACTION_FAILED,
-                safe_message="Page metadata could not be extracted.",
+                safe_message="Page metadata could not be fully extracted.",
                 operation=lambda: _extract_metadata(page),
                 fallback_factory=lambda: _PageMetadata("", None, None),
                 warnings=warnings,
             )
+            if metadata.extraction_failed:
+                warnings.append(
+                    ExtractionWarning(
+                        category=ExtractionCategory.METADATA,
+                        code=(
+                            ExtractionWarningCode.METADATA_EXTRACTION_FAILED
+                        ),
+                        message=(
+                            "Page metadata could not be fully extracted."
+                        ),
+                    )
+                )
             headings = _extract_category(
                 category=ExtractionCategory.HEADINGS,
                 code=ExtractionWarningCode.HEADINGS_EXTRACTION_FAILED,
