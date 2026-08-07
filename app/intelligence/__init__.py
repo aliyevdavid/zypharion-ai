@@ -6,6 +6,11 @@ from app.intelligence.analysis_models import (
     PageType,
 )
 from app.intelligence.analyzer import analyze_browser_intelligence
+from app.intelligence.evidence_models import (
+    EvidenceItem,
+    EvidenceSource,
+    EvidenceType,
+)
 from app.intelligence.extractor import analyze_page
 from app.intelligence.models import (
     BrowserIntelligenceRequest,
@@ -27,6 +32,9 @@ __all__ = [
     "BrowserIntelligenceRequest",
     "BrowserIntelligenceResult",
     "ButtonInfo",
+    "EvidenceItem",
+    "EvidenceSource",
+    "EvidenceType",
     "ExtractionCategory",
     "ExtractionWarning",
     "ExtractionWarningCode",
