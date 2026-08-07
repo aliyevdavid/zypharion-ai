@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from app.intelligence.analysis_models import (
     AnalysisFinding,
+    IntelligenceExplanation,
     PageAnalysisResult,
     PageClassification,
     PageType,
@@ -45,6 +46,8 @@ _EVIDENCE_TYPES: dict[str, EvidenceType] = {
     "No strong classification signals detected": EvidenceType.STRUCTURE,
 }
 
+_UNKNOWN_UNCERTAINTY = "No strong classification signals were detected."
+
 
 def _build_structured_evidence(evidence: list[str]) -> list[EvidenceItem]:
     return [
@@ -55,6 +58,31 @@ def _build_structured_evidence(evidence: list[str]) -> list[EvidenceItem]:
         )
         for description in evidence
     ]
+
+
+def _build_classification(
+    *,
+    page_type: PageType,
+    confidence: float,
+    evidence: list[str],
+) -> PageClassification:
+    structured_evidence = _build_structured_evidence(evidence)
+    return PageClassification(
+        page_type=page_type,
+        confidence=confidence,
+        evidence=evidence,
+        structured_evidence=structured_evidence,
+        explanation=IntelligenceExplanation(
+            conclusion=page_type.value,
+            confidence=confidence,
+            evidence=structured_evidence,
+            uncertainty=(
+                _UNKNOWN_UNCERTAINTY
+                if page_type is PageType.UNKNOWN
+                else None
+            ),
+        ),
+    )
 
 
 def _collect_page_text(result: BrowserIntelligenceResult) -> str:
@@ -344,20 +372,16 @@ def _classify_page(
 
     if best_candidate.score == 0:
         evidence = ["No strong classification signals detected"]
-        return PageClassification(
+        return _build_classification(
             page_type=PageType.UNKNOWN,
             confidence=0.25,
             evidence=evidence,
-            structured_evidence=_build_structured_evidence(evidence),
         )
 
-    return PageClassification(
+    return _build_classification(
         page_type=best_candidate.page_type,
         confidence=_calculate_confidence(best_candidate.score),
         evidence=best_candidate.evidence,
-        structured_evidence=_build_structured_evidence(
-            best_candidate.evidence
-        ),
     )
 
 

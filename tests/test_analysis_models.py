@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.intelligence.analysis_models import (
     AnalysisFinding,
+    IntelligenceExplanation,
     PageAnalysisRequest,
     PageAnalysisResult,
     PageClassification,
@@ -83,6 +84,7 @@ def test_page_classification_serializes_structured_evidence() -> None:
                 "severity": None,
             }
         ],
+        "explanation": None,
     }
 
 
@@ -99,6 +101,61 @@ def test_page_classification_structured_evidence_defaults_are_not_shared() -> No
     )
 
     assert second.structured_evidence == []
+
+
+def test_intelligence_explanation_serializes_provider_neutral_evidence() -> None:
+    explanation = IntelligenceExplanation(
+        conclusion="authentication",
+        confidence=0.95,
+        evidence=[
+            EvidenceItem(
+                type=EvidenceType.STRUCTURE,
+                source=EvidenceSource.DETERMINISTIC,
+                description="Password input detected",
+            )
+        ],
+    )
+
+    assert explanation.model_dump(mode="json") == {
+        "conclusion": "authentication",
+        "confidence": 0.95,
+        "evidence": [
+            {
+                "type": "structure",
+                "source": "deterministic",
+                "description": "Password input detected",
+                "confidence": None,
+                "severity": None,
+            }
+        ],
+        "uncertainty": None,
+    }
+
+
+def test_intelligence_explanation_evidence_defaults_are_not_shared() -> None:
+    first = IntelligenceExplanation(conclusion="unknown", confidence=0.25)
+    second = IntelligenceExplanation(conclusion="unknown", confidence=0.25)
+
+    first.evidence.append(
+        EvidenceItem(
+            type=EvidenceType.STRUCTURE,
+            source=EvidenceSource.DETERMINISTIC,
+            description="Observed signal",
+        )
+    )
+
+    assert second.evidence == []
+
+
+@pytest.mark.parametrize("confidence", [-0.1, 1.1])
+def test_intelligence_explanation_rejects_invalid_confidence(
+    confidence: float,
+) -> None:
+    with pytest.raises(ValidationError):
+        IntelligenceExplanation(
+            conclusion="unknown",
+            confidence=confidence,
+        )
 
 
 def test_page_classification_rejects_confidence_above_one() -> None:

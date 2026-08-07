@@ -7,6 +7,7 @@ from app.ai.prompts import (
 )
 from app.intelligence.analysis_models import (
     AnalysisFinding,
+    IntelligenceExplanation,
     PageAnalysisResult,
     PageClassification,
     PageType,
@@ -34,6 +35,17 @@ def _build_analysis() -> PageAnalysisResult:
                     description="Dashboard-related text detected",
                 )
             ],
+            explanation=IntelligenceExplanation(
+                conclusion="dashboard",
+                confidence=0.85,
+                evidence=[
+                    EvidenceItem(
+                        type=EvidenceType.CONTENT,
+                        source=EvidenceSource.DETERMINISTIC,
+                        description="Dashboard-related text detected",
+                    )
+                ],
+            ),
         ),
         detected_features=["interactive_buttons"],
         findings=[
@@ -188,3 +200,4 @@ def test_prompt_builder_includes_only_relevant_analysis_data() -> None:
     }
     assert "analysis_id" not in context
     assert "requested_url" not in context
+    assert "explanation" not in context["deterministic_classification"]

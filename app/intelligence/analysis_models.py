@@ -30,6 +30,15 @@ class AnalysisFinding(BaseModel):
     severity: str = "info"
 
 
+class IntelligenceExplanation(BaseModel):
+    """Deterministic explanation of an intelligence conclusion."""
+
+    conclusion: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: list[EvidenceItem] = Field(default_factory=list)
+    uncertainty: str | None = None
+
+
 class PageClassification(BaseModel):
     """
     The predicted page type and the evidence supporting that prediction.
@@ -39,6 +48,7 @@ class PageClassification(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: list[str] = Field(default_factory=list)
     structured_evidence: list[EvidenceItem] = Field(default_factory=list)
+    explanation: IntelligenceExplanation | None = None
 
 
 class PageAnalysisRequest(BaseModel):
