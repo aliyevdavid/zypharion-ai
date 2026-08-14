@@ -1,9 +1,7 @@
 # Zypharion AI
 
-Zypharion AI is a web-based B2B SaaS Quality Engineering platform. It helps
-engineering and QA teams design better tests, discover missing coverage,
-execute relevant validation, diagnose failures faster, optimize automation,
-and understand release quality.
+Zypharion AI is a web-based AI-powered Quality Engineering platform that helps engineering and QA teams turn application behavior, test signals, and release evidence into structured, explainable quality intelligence.
+It is being built to support better test design, coverage discovery, risk-based validation, failure diagnosis, automation optimization, and release-quality decisions.
 
 ## Why Zypharion
 
