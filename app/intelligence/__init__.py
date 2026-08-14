@@ -7,6 +7,7 @@ from app.intelligence.analysis_models import (
     PageType,
 )
 from app.intelligence.analyzer import analyze_browser_intelligence
+from app.intelligence.behavior_discovery import discover_application_behaviors
 from app.intelligence.behavior_models import (
     ApplicationBehavior,
     BehaviorSource,
@@ -60,4 +61,5 @@ __all__ = [
     "PageType",
     "analyze_browser_intelligence",
     "analyze_page",
+    "discover_application_behaviors",
 ]
