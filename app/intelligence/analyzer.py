@@ -9,6 +9,7 @@ from app.intelligence.analysis_models import (
     PageClassification,
     PageType,
 )
+from app.intelligence.behavior_discovery import discover_application_behaviors
 from app.intelligence.evidence_models import (
     EvidenceItem,
     EvidenceSource,
@@ -515,6 +516,7 @@ def analyze_browser_intelligence(
         final_url=result.final_url,
         title=result.title,
         classification=classification,
+        behaviors=discover_application_behaviors(result, classification),
         detected_features=_detect_features(result),
         findings=findings,
         recommendations=_build_recommendations(

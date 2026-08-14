@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, HttpUrl
 
+from app.intelligence.behavior_models import ApplicationBehavior
 from app.intelligence.evidence_models import EvidenceItem
 
 
@@ -72,6 +73,7 @@ class PageAnalysisResult(BaseModel):
     final_url: str
     title: str
     classification: PageClassification
+    behaviors: list[ApplicationBehavior] = Field(default_factory=list)
     detected_features: list[str] = Field(default_factory=list)
     findings: list[AnalysisFinding] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
