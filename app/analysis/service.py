@@ -32,6 +32,9 @@ class DeterministicAnalyzer(Protocol):
     ) -> DeterministicPageAnalysisResult: ...
 
 
+AIEngineFactory = Callable[[], AIIntelligenceEngine]
+
+
 class PageAnalysisService:
     """Coordinate browser, deterministic, and optional AI intelligence."""
 
@@ -41,11 +44,13 @@ class PageAnalysisService:
         deterministic_analyzer: DeterministicAnalyzer,
         ai_engine: AIIntelligenceEngine | None = None,
         *,
+        ai_engine_factory: AIEngineFactory | None = None,
         clock: Callable[[], float] = perf_counter,
     ) -> None:
         self._browser_analyzer = browser_analyzer
         self._deterministic_analyzer = deterministic_analyzer
         self._ai_engine = ai_engine
+        self._ai_engine_factory = ai_engine_factory
         self._clock = clock
 
     def analyze(
@@ -115,7 +120,16 @@ class PageAnalysisService:
                 intelligence=intelligence,
             )
 
-        if self._ai_engine is None:
+        ai_engine = self._ai_engine
+        if ai_engine is None and self._ai_engine_factory is not None:
+            try:
+                ai_engine = self._ai_engine_factory()
+            except Exception:
+                ai_engine = None
+            else:
+                self._ai_engine = ai_engine
+
+        if ai_engine is None:
             return self._result(
                 started_at=started_at,
                 url=url,
@@ -132,7 +146,7 @@ class PageAnalysisService:
             )
 
         try:
-            ai_intelligence = self._ai_engine.analyze(intelligence)
+            ai_intelligence = ai_engine.analyze(intelligence)
         except AIResponseValidationError:
             return self._result(
                 started_at=started_at,
