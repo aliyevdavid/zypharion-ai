@@ -38,7 +38,7 @@ class AIResponse(BaseModel):
 
 class AIPageClassification(BaseModel):
     """
-    Future AI-oriented page classification output.
+    AI-oriented page classification output.
     """
 
     category: str

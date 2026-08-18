@@ -19,14 +19,13 @@ def create_page_analysis_service(
 ) -> PageAnalysisService:
     """Compose the page-analysis workflow without running any analysis."""
     resolved_settings = settings if settings is not None else get_settings()
-    resolved_ai_engine = (
-        ai_engine
-        if ai_engine is not None
-        else create_intelligence_engine(resolved_settings)
-    )
-
     return PageAnalysisService(
         browser_analyzer=browser_analyzer,
         deterministic_analyzer=deterministic_analyzer,
-        ai_engine=resolved_ai_engine,
+        ai_engine=ai_engine,
+        ai_engine_factory=(
+            None
+            if ai_engine is not None
+            else lambda: create_intelligence_engine(resolved_settings)
+        ),
     )

@@ -44,7 +44,7 @@ a partial-success response.
 | --- | --- | --- |
 | `GET` | `/` | Service status and environment metadata |
 | `GET` | `/health` | Health, version, and environment metadata |
-| `GET` | `/automation/smoke` | Basic Playwright title and heading validation |
+| `GET` | `/automation/smoke` | Playwright navigation, response-status, and title validation |
 | `POST` | `/intelligence/analyze` | Browser intelligence extraction |
 | `POST` | `/ai/analyze` | Browser extraction followed by deterministic analysis |
 | `POST` | `/api/v1/analyze` | Complete workflow with optional AI enhancement |

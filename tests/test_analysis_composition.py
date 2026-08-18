@@ -115,8 +115,10 @@ def test_explicit_settings_are_passed_to_ai_composition() -> None:
             deterministic_analyzer=Mock(),
         )
 
+        assert service._ai_engine_factory is not None
+        assert service._ai_engine_factory() is composed_engine
+
     create_engine.assert_called_once_with(settings)
-    assert service._ai_engine is composed_engine
 
 
 def test_omitted_settings_use_cached_settings() -> None:
@@ -133,13 +135,83 @@ def test_omitted_settings_use_cached_settings() -> None:
             return_value=composed_engine,
         ) as create_engine,
     ):
-        create_page_analysis_service(
+        service = create_page_analysis_service(
             browser_analyzer=Mock(),
             deterministic_analyzer=Mock(),
         )
 
+        assert service._ai_engine_factory is not None
+        assert service._ai_engine_factory() is composed_engine
+
     get_settings.assert_called_once_with()
     create_engine.assert_called_once_with(settings)
+
+
+def test_deterministic_request_does_not_compose_ai_engine() -> None:
+    browser_result = BrowserIntelligenceResult(
+        requested_url="https://example.test/",
+        final_url="https://example.test/",
+        title="Example",
+        success=True,
+        metrics=PageMetrics(load_time_ms=1),
+    )
+    deterministic_result = DeterministicPageAnalysisResult(
+        requested_url="https://example.test/",
+        final_url="https://example.test/",
+        title="Example",
+        classification=PageClassification(
+            page_type=PageType.MARKETING,
+            confidence=0.8,
+        ),
+    )
+
+    with patch(
+        "app.analysis.composition.create_intelligence_engine",
+        side_effect=ValueError("invalid provider configuration"),
+    ) as create_engine:
+        service = create_page_analysis_service(
+            Settings(ai_provider="unsupported"),
+            browser_analyzer=Mock(return_value=browser_result),
+            deterministic_analyzer=Mock(return_value=deterministic_result),
+        )
+        result = service.analyze(
+            PageAnalysisRequest(url="https://example.test", use_ai=False)
+        )
+
+    create_engine.assert_not_called()
+    assert result.status.value == "success"
+    assert result.intelligence is deterministic_result
+
+
+def test_ai_request_reports_invalid_provider_configuration() -> None:
+    browser_result = BrowserIntelligenceResult(
+        requested_url="https://example.test/",
+        final_url="https://example.test/",
+        title="Example",
+        success=True,
+        metrics=PageMetrics(load_time_ms=1),
+    )
+    deterministic_result = DeterministicPageAnalysisResult(
+        requested_url="https://example.test/",
+        final_url="https://example.test/",
+        title="Example",
+        classification=PageClassification(
+            page_type=PageType.MARKETING,
+            confidence=0.8,
+        ),
+    )
+    service = create_page_analysis_service(
+        Settings(ai_provider="unsupported"),
+        browser_analyzer=Mock(return_value=browser_result),
+        deterministic_analyzer=Mock(return_value=deterministic_result),
+    )
+
+    result = service.analyze(
+        PageAnalysisRequest(url="https://example.test", use_ai=True)
+    )
+
+    assert result.status.value == "partial_success"
+    assert result.errors[0].code == "ai_intelligence_unavailable"
 
 
 def test_composition_performs_no_analysis_work() -> None:
