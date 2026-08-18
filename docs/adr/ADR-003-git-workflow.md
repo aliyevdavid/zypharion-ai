@@ -1,8 +1,12 @@
 # ADR-003: Use Develop as a Temporary Integration Branch
 
-- Status: Accepted (transitional)
+- Status: Superseded
 - Date: 2026-07-20
 - Updated: 2026-08-13
+
+This record documents the former transitional workflow. The current workflow
+uses short-lived feature branches and reviewed pull requests directly into
+`main`, as defined in the engineering standards.
 
 ## Context
 

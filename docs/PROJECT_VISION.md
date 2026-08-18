@@ -2,10 +2,10 @@
 
 ## Mission
 
-Zypharion AI is a web-based AI-powered Quality Engineering platform that helps
-engineering and QA teams design better tests, discover missing coverage,
-execute relevant validation, diagnose failures faster, optimize automation,
-and understand release quality.
+Zypharion is an AI-powered Quality Engineering intelligence platform being
+built to help engineering and QA teams design better tests, discover missing
+coverage, execute relevant validation, diagnose failures faster, optimize
+automation, and understand release quality.
 
 The platform combines deterministic application intelligence with optional,
 evidence-grounded AI reasoning. Its goal is to make software quality more
@@ -19,6 +19,9 @@ often cannot answer basic questions quickly: what behavior matters, what is
 covered, what should run now, why did it fail, and how risky is this release?
 
 Zypharion will connect those signals through four product pillars.
+
+These pillars describe intended product outcomes. Capabilities not identified
+as implemented in the roadmap remain future work.
 
 ## CREATE
 

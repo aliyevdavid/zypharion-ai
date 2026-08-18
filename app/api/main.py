@@ -35,7 +35,7 @@ def get_page_analysis_service() -> PageAnalysisService:
 async def root(request: Request) -> dict[str, str]:
     settings: Settings = request.app.state.settings
     return {
-        "message": "Welcome to Zypharion AI Software Intelligence Platform",
+        "message": "Zypharion Quality Engineering Intelligence Platform",
         "status": "running",
         "environment": settings.environment,
     }
@@ -56,7 +56,7 @@ async def health_check(request: Request) -> dict[str, str]:
 def automation_smoke_tests(
     url: str = Query(
         ...,
-        description="Public URL that Zypharion should validate",
+        description="Public URL that the backend API should validate",
         examples=["https://example.com"],
     ),
 ) -> dict:
@@ -85,7 +85,7 @@ def analyze_browser_page(
     summary="Generate explainable page analysis",
     description=(
         "Open a public URL, collect structured browser intelligence, and "
-        "apply Zypharion's deterministic reasoning engine to classify the "
+        "apply the deterministic reasoning engine to classify the "
         "page and generate explainable findings and recommendations."
     ),
 )
@@ -116,7 +116,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings if settings is not None else get_settings()
     application = FastAPI(
         title=resolved_settings.app_name,
-        description="AI Software Intelligence Platform backend API.",
+        description=(
+            "Backend API for Zypharion, an AI-powered Quality Engineering "
+            "intelligence platform."
+        ),
         version=resolved_settings.app_version,
     )
     application.state.settings = resolved_settings

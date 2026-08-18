@@ -3,12 +3,9 @@
 ## Branching and integration
 
 - Use small, short-lived branches for each coherent change.
-- The current integration path is feature branch to `develop`, followed by a
-  deliberate promotion from `develop` to `main`.
-- Keep `main` release-ready. After it becomes the active integration branch,
-  changes must reach it through reviewed pull requests; direct pushes are not
-  permitted.
-- Require passing continuous integration before adopting a main-based workflow.
+- Open a reviewed pull request from each feature branch directly into `main`.
+- Keep `main` release-ready; direct pushes to `main` are not permitted.
+- Require continuous integration to pass before merge.
 - Name branches by intent, for example `feature/behavior-discovery`,
   `fix/extraction-warning`, or `docs/main-readiness`.
 - Do not mix unrelated cleanup into a product change.
@@ -30,7 +27,7 @@ Every pull request should identify:
 - key changes and architectural effects;
 - validation performed and exact test results;
 - known limitations or follow-up work; and
-- the correct integration branch for the current workflow.
+- confirmation that the target branch is currently `main`.
 
 Tests must pass before merge. Review the complete diff and keep commits free of
 credentials, generated local artifacts, and unrelated changes.
@@ -88,7 +85,7 @@ A change is complete when:
 
 - Load secrets from environment variables or an approved secret manager.
 - Never commit real credentials or local `.env` files.
-- Apply explicit network, tenant, and artifact-retention boundaries as the SaaS
-  platform evolves.
+- Apply explicit network, tenant, and artifact-retention boundaries as hosted,
+  persistent, and multi-user workflows evolve.
 - Require human approval and an audit trail for future high-impact automated
   actions.

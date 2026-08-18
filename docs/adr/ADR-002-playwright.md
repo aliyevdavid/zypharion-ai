@@ -5,8 +5,9 @@
 
 ## Context
 
-Zypharion requires reliable browser interaction, modern web support, network
-inspection, screenshots, isolated contexts, and future autonomous exploration.
+The platform requires reliable browser interaction, modern web support, network
+inspection, screenshots, isolated contexts, and future permissioned application
+exploration and multi-step journey analysis.
 
 ## Decision
 

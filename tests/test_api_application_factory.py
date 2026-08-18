@@ -49,7 +49,8 @@ def test_explicit_settings_control_metadata_and_runtime_responses() -> None:
     assert schema["info"]["title"] == "Factory Test API"
     assert schema["info"]["version"] == "11.2.0"
     assert schema["info"]["description"] == (
-        "AI Software Intelligence Platform backend API."
+        "Backend API for Zypharion, an AI-powered Quality Engineering "
+        "intelligence platform."
     )
     assert "/api/v1/analyze" in schema["paths"]
 

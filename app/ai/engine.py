@@ -5,7 +5,7 @@ from app.ai.models import AIRequest, AIResponse
 
 class AIEngine(ABC):
     """
-    Provider-independent contract for Zypharion AI engines.
+    Provider-independent contract for platform AI engines.
 
     Concrete implementations may call OpenAI, Azure OpenAI,
     a local model, or a deterministic mock used by automated tests.
