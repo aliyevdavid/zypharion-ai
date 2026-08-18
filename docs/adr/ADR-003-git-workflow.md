@@ -10,56 +10,56 @@ uses short-lived feature branches and reviewed pull requests directly into
 
 ## Context
 
-Zypharion needs controlled integration, pull-request review, readable history,
-and a release-ready `main` branch. The repository currently integrates work
-through `develop` while documentation, CI, and branch protections are prepared
-for promotion to a main-based workflow.
+Zypharion needed controlled integration, pull-request review, readable history,
+and a release-ready `main` branch. At the time of this decision, the repository
+integrated work through `develop` while documentation, CI, and branch
+protections were prepared for a main-based workflow.
 
 ## Decision
 
-Use the following current workflow:
+The transitional workflow was:
 
 ```text
 short-lived feature branch -> develop -> main promotion
 ```
 
-Feature branches are created from the current integration baseline and merged
-through reviewed pull requests. `develop` is a temporary integration branch;
-`main` remains the release boundary until the readiness work is complete.
+Feature branches were created from the integration baseline and merged through
+reviewed pull requests. `develop` served as a temporary integration branch;
+`main` remained the release boundary during readiness work.
 
-After `main` is promoted and protected, the intended workflow is GitHub Flow:
+The intended replacement was a main-based workflow:
 
 ```text
 short-lived feature branch -> reviewed pull request -> main
 ```
 
-That transition is planned, not yet adopted. It requires passing pull-request
-CI, configured branch protection, and an explicit workflow decision update.
+That transition has since been adopted. Current guidance is defined in the
+engineering standards linked above.
 
 ## Consequences
 
 ### Positive
 
-- Preserves the repository's current integration path during main readiness
-- Keeps the release boundary separate from active integration work
-- Establishes clear prerequisites for a simpler future workflow
-- Supports small changes, review, and automated quality gates
+- Preserved the repository's integration path during transition preparation
+- Kept the release boundary separate from active integration work
+- Established clear prerequisites for a simpler workflow
+- Supported small changes, review, and automated quality gates
 
 ### Negative
 
-- Two long-lived branches add integration ceremony
-- `develop` and `main` can diverge if promotions are delayed
-- Contributors must confirm the correct pull-request base during transition
+- Two long-lived branches added integration ceremony
+- `develop` and `main` could diverge when promotions were delayed
+- Contributors had to confirm the correct pull-request base during transition
 
 ## Transition criteria
 
-Before adopting the main-based workflow:
+The transition criteria were:
 
-- promote an approved, verified `develop` state to `main`;
-- require CI checks on pull requests;
-- protect `main` from direct pushes and history rewrites;
-- require reviewed pull requests for changes; and
-- update this ADR or supersede it with a dedicated workflow ADR.
+- promotion of an approved, verified `develop` state to `main`;
+- required CI checks on pull requests;
+- protection of `main` from direct pushes and history rewrites;
+- required reviewed pull requests for changes; and
+- an update to this ADR or a superseding workflow ADR.
 
 ## Alternatives considered
 

@@ -7,7 +7,7 @@
 - Keep `main` release-ready; direct pushes to `main` are not permitted.
 - Require continuous integration to pass before merge.
 - Name branches by intent, for example `feature/behavior-discovery`,
-  `fix/extraction-warning`, or `docs/main-readiness`.
+  `fix/extraction-warning`, or `docs/repository-control-alignment`.
 - Do not mix unrelated cleanup into a product change.
 
 ## Commits and pull requests
