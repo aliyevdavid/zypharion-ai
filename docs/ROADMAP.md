@@ -16,6 +16,7 @@ future work unless a repository change explicitly marks it complete.
 - Observable application behavior models
 - Complete page-analysis service with controlled failure and partial-success
   states
+- Main-based pull-request workflow with continuous integration
 - Provider-neutral AI engine and page-intelligence contracts
 - Versioned, evidence-grounded prompt construction
 - AI response normalization and schema validation
@@ -30,8 +31,6 @@ future work unless a repository change explicitly marks it complete.
 - Identify coverage gaps and prioritize scenarios by quality risk
 - Define browser and API execution contracts with structured artifacts
 - Improve failure taxonomy, retries, timeouts, and diagnostic evidence
-- Establish pull-request CI as a required quality gate before adopting a
-  main-based branch workflow
 - Add security controls for target validation, network boundaries, secrets,
   and retained artifacts
 
@@ -61,6 +60,6 @@ future work unless a repository change explicitly marks it complete.
 
 Future roadmap entries are not available product claims. Zypharion currently
 provides backend page extraction, deterministic intelligence, application
-behavior contracts, and optional AI enhancement. Broader SaaS workflows,
-autonomous actions, and release decisions require additional product,
-security, evaluation, and operational work.
+behavior contracts, and optional AI enhancement. Broader hosted, persistent,
+and multi-user workflows, autonomous actions, and release decisions require
+additional product, security, evaluation, and operational work.

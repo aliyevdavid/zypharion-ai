@@ -1,21 +1,29 @@
-# Zypharion AI Repository Instructions
+# Zypharion Repository Instructions
 
 ## 1. Project Mission
 
-Zypharion AI is an Application Intelligence and AI Quality-Control Platform. Its purpose is to observe, understand, map, test, diagnose, and eventually help heal software applications.
+Zypharion is an AI-powered Quality Engineering intelligence platform.
+This repository provides the backend foundation for collecting browser evidence,
+discovering observable application behavior, and producing structured,
+explainable quality intelligence. Broader test design, coverage, diagnosis,
+optimization, and release-quality outcomes remain product direction unless
+identified as implemented in `docs/ROADMAP.md`.
 
-Work in this repository should advance that mission while preserving a clear boundary between deterministic application intelligence and future LLM-driven intelligence.
+Work in this repository should advance that mission while preserving a clear
+boundary between deterministic application intelligence and optional,
+provider-neutral AI enhancement.
 
 ## 2. Current Architecture
 
 The current intelligence flow is:
 
 ```text
-FastAPI
-→ IntelligenceService
-→ Playwright extraction
+FastAPI backend
+→ PageAnalysisService
+→ Playwright browser extraction
 → BrowserIntelligenceResult
-→ deterministic analyzer
+→ deterministic page analysis, structured evidence, and behavior discovery
+→ optional provider-neutral AI enhancement
 → PageAnalysisResult
 ```
 
@@ -26,22 +34,27 @@ The current HTTP endpoints are:
 - `GET /automation/smoke`
 - `POST /intelligence/analyze`
 - `POST /ai/analyze`
+- `POST /api/v1/analyze` (preferred versioned analysis endpoint)
 
-The `app/ai` abstraction exists, but it is not currently part of the intelligence request flow. Keep deterministic intelligence separate from future LLM intelligence unless an architectural change is explicitly approved.
+The preferred workflow keeps browser extraction and deterministic intelligence
+independent of AI. Optional AI enhancement consumes structured deterministic
+results through provider-neutral contracts and must not replace their evidence
+or failure behavior.
 
 ## 3. Current Implementation Status
 
-- Day 6 is complete and merged.
-- The current test count is 31.
-- The service supports Playwright-based browser extraction and deterministic page analysis.
-- The known extractor weakness is live `locator.count()`/`locator.nth()` iteration: extraction can fail when a page mutates the DOM during iteration.
-- Treat these statements as the current repository baseline. Verify implementation details and test counts when a task depends on them.
+- The backend supports Playwright extraction, deterministic page analysis,
+  structured evidence, behavior discovery, and optional AI enhancement.
+- Repeated browser elements are collected through stable browser-side snapshots,
+  with category-level warnings and partial results for localized failures.
+- Treat `docs/ROADMAP.md` as the capability-status reference and verify
+  implementation details and test counts when a task depends on them.
 
 ## 4. Engineering Principles
 
 - Prefer small, targeted changes over broad rewrites.
 - Preserve existing behavior and API contracts unless a change is explicitly approved.
-- Keep deterministic intelligence separate from future LLM intelligence.
+- Keep deterministic intelligence separate from optional AI enhancement.
 - Favor clear boundaries, explicit data flow, and maintainable abstractions.
 - Explain the reason for architectural changes and identify their effects on existing behavior.
 - Avoid site-specific workarounds unless they are clearly justified.
@@ -53,7 +66,7 @@ The `app/ai` abstraction exists, but it is not currently part of the intelligenc
 - Use explicit Pydantic models for request, response, extraction, and analysis data.
 - Keep FastAPI endpoint contracts stable unless an API change is explicitly approved.
 - Keep route handlers thin; orchestration belongs in services and domain behavior belongs in the relevant intelligence components.
-- Preserve the separation among API, service, extraction, deterministic analysis, and future AI layers.
+- Preserve the separation among API, service, extraction, deterministic analysis, and optional AI enhancement layers.
 - Make error behavior deliberate, structured, and testable.
 
 ## 6. Playwright Extraction Standards
@@ -79,9 +92,10 @@ The `app/ai` abstraction exists, but it is not currently part of the intelligenc
 
 ## 8. Git Workflow
 
-- Do not modify `main` or `develop` directly.
-- Feature branches follow `feature/day-XX-description`.
-- Changes merge in this order: feature branch → `develop` → `main`.
+- Use a small, short-lived feature, fix, chore, or documentation branch.
+- Merge changes through a reviewed pull request directly into `main`.
+- Keep `main` release-ready; direct pushes to `main` are not permitted.
+- Require continuous integration to pass before merge.
 - Do not commit, push, merge, delete branches, or modify Git history without explicit approval.
 - Preserve unrelated working-tree changes and do not overwrite user work.
 
@@ -107,14 +121,13 @@ The `app/ai` abstraction exists, but it is not currently part of the intelligenc
 - Validate implementation changes with targeted tests and the full `pytest` suite.
 - Never claim that work succeeded when it was not tested.
 - Do not install or upgrade dependencies without explicit approval.
-- Do not commit, push, merge, delete branches, modify Git history, or work directly on `main` or `develop` without explicit approval.
+- Do not commit, push, merge, delete branches, modify Git history, or work directly on `main` without explicit approval.
 - Never read `.env` values or expose credentials unless explicitly requested.
 - At handoff, report changed files, tests run and their results, and any remaining risks.
 
-## 11. Current Milestone: Day 7
+## 11. Current Product Direction
 
-Day 7 focuses on extractor resilience for dynamic real-world websites.
-
-The primary known issue is that live Playwright locator iteration using `count()` and `nth()` can become invalid while a page mutates its DOM. Day 7 work should prefer browser-side stable snapshots, preserve partial extraction results, emit structured warnings, and prevent a single unreadable element from failing the entire page analysis.
-
-Success for this milestone means extractor behavior is more resilient without unnecessary API changes, broad rewrites, or site-specific fixes, and the behavior is covered by focused tests plus the full test suite.
+Use `docs/ROADMAP.md` to distinguish the implemented foundation from near-term,
+mid-term, and later work. Do not infer that a roadmap outcome is implemented.
+Keep current behavior aligned with `docs/PROJECT_ARCHITECTURE.md` and preserve
+the capability boundaries documented in the README and project vision.
