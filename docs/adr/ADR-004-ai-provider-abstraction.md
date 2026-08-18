@@ -6,7 +6,7 @@
 
 ## Context
 
-Zypharion may use different language-model providers over time. Business logic
+The platform may use different language-model providers over time. Business logic
 should not be coupled directly to one vendor SDK.
 
 ## Decision
@@ -34,5 +34,3 @@ response models. Add provider adapters behind that contract.
 - Import the OpenAI SDK directly throughout the application
 - Use an orchestration framework immediately
 - Support only one hardcoded provider
-
-```

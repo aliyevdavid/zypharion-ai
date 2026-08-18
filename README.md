@@ -1,7 +1,11 @@
-# Zypharion AI
+# Zypharion
 
-Zypharion AI is a web-based AI-powered Quality Engineering platform that helps engineering and QA teams turn application behavior, test signals, and release evidence into structured, explainable quality intelligence.
-It is being built to support better test design, coverage discovery, risk-based validation, failure diagnosis, automation optimization, and release-quality decisions.
+Zypharion is an AI-powered Quality Engineering intelligence platform.
+This repository provides the backend foundation for collecting browser evidence
+and producing structured, explainable quality intelligence. Zypharion is being
+built toward broader product outcomes including better test design, coverage
+discovery, risk-based validation, failure diagnosis, automation optimization,
+and release-quality decisions.
 
 ## Why Zypharion
 
@@ -132,7 +136,7 @@ Set `use_ai` to `true` to request enhancement from the configured AI provider.
   not guarantees about complete application behavior or release safety.
 - Current deterministic findings cover a focused set of page classification,
   accessibility, form, reliability, and behavior signals.
-- The backend does not yet include a SaaS dashboard, tenant isolation,
+- The backend does not yet include a hosted dashboard, tenant isolation,
   persistence, CI/CD integrations, test generation, or test execution beyond
   the basic smoke endpoint.
 - AI output is optional, provider-dependent, and validated, but it must not

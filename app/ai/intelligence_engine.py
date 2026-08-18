@@ -57,7 +57,7 @@ class AIIntelligenceEngine(ABC):
 
 class DeterministicIntelligenceEngine(AIIntelligenceEngine):
     """
-    Stable local placeholder for the future model-backed engine.
+    Deterministic local implementation of the page-intelligence contract.
 
     This implementation only reformats existing deterministic analysis. It
     performs no model inference and makes no network requests.

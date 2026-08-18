@@ -64,8 +64,9 @@ class PageAnalysisResult(BaseModel):
     """
     Final structured output produced by the intelligence analysis layer.
 
-    Each result receives a unique identifier so it can later be persisted,
-    retrieved, compared, referenced in reports, or tracked historically.
+    Each result receives a unique identifier for correlation. The identifier
+    also supports future persistence, comparison, reporting, and historical
+    analysis; those capabilities are not provided by this model.
     """
 
     analysis_id: UUID = Field(default_factory=uuid4)
