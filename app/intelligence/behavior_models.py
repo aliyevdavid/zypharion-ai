@@ -28,10 +28,11 @@ class BehaviorSource(StrEnum):
 
 
 class ApplicationBehavior(BaseModel):
-    """A capability the application appears to expose for testing.
+    """An observable application capability, not a generated test case.
 
-    A behavior is not a test scenario: it contains no test steps, expected
-    results, assertions, negative cases, or executable automation.
+    Instances summarize deterministic, page-level browser observations. They
+    do not claim to model the complete application and contain no test steps,
+    expected results, assertions, selectors, or executable automation.
     """
 
     behavior_type: BehaviorType

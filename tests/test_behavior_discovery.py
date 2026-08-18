@@ -1,3 +1,4 @@
+import re
 from unittest.mock import Mock
 
 import pytest
@@ -35,7 +36,14 @@ def _result(**overrides: object) -> BrowserIntelligenceResult:
 def test_empty_and_noisy_structures_do_not_produce_behaviors() -> None:
     result = _result(
         links=[LinkInfo(text=" ", href="#", is_external=False)],
-        buttons=[ButtonInfo(text="...", button_type="button")],
+        buttons=[
+            ButtonInfo(text="...", button_type="button"),
+            ButtonInfo(text="<button>Save</button>", button_type="button"),
+            ButtonInfo(text="#submit", button_type="button"),
+            ButtonInfo(text="verify that it works", button_type="button"),
+        ],
+        inputs=[InputInfo(name="#query", input_type="not-a-real-type")],
+        forms=[FormInfo(action="[data-form]", method="invalid")],
     )
 
     assert discover_application_behaviors(result) == []
@@ -55,9 +63,50 @@ def test_meaningful_links_produce_one_navigation_behavior() -> None:
         (BehaviorType.NAVIGATION, BehaviorSource.LINK)
     ]
     assert [item.description for item in behaviors[0].evidence] == [
-        "Link observed: text=Account, href=/account",
-        "Link observed: text=Help, href=https://help.example.com",
+        "Link observed: label=Account",
+        "Link observed: label=Help",
     ]
+
+
+def test_public_output_excludes_raw_markup_selectors_and_test_case_language() -> None:
+    result = _result(
+        links=[
+            LinkInfo(text="Account", href="//main/nav/a[1]", is_external=False),
+            LinkInfo(text="<a>Unsafe</a>", href="/unsafe", is_external=False),
+        ],
+        forms=[FormInfo(action="#login-form", method="post")],
+        inputs=[
+            InputInfo(
+                name="[data-testid=query]",
+                input_type="search",
+                placeholder="verify that expected result",
+            )
+        ],
+        buttons=[
+            ButtonInfo(text="Search", button_type="submit"),
+            ButtonInfo(text="Step 1 assert", button_type="button"),
+        ],
+    )
+
+    serialized = str(
+        discover_application_behaviors(result)[0].model_dump(mode="json")
+    )
+    all_output = str(
+        [
+            behavior.model_dump(mode="json")
+            for behavior in discover_application_behaviors(result)
+        ]
+    ).casefold()
+
+    assert "<a>" not in all_output
+    assert "data-testid" not in all_output
+    assert "#login-form" not in all_output
+    assert "//main/nav" not in all_output
+    assert all(
+        phrase not in all_output
+        for phrase in ("step", "assert", "expected result", "verify that")
+    )
+    assert not re.search(r"<\s*/?\s*[a-z][^>]*>", serialized, re.IGNORECASE)
 
 
 def test_password_and_login_form_produce_authentication_behaviors() -> None:
@@ -140,6 +189,62 @@ def test_evidence_is_structured_deterministic_and_duplicate_signals_are_folded()
     assert evidence.confidence is None
 
 
+def test_duplicate_observations_fold_evidence_for_every_source() -> None:
+    result = _result(
+        links=[
+            LinkInfo(text="Account", href="/account", is_external=False),
+            LinkInfo(text="Account", href="/account", is_external=False),
+        ],
+        inputs=[
+            InputInfo(name="email", input_type="email"),
+            InputInfo(name="email", input_type="email"),
+        ],
+        buttons=[
+            ButtonInfo(text="Save", button_type="submit"),
+            ButtonInfo(text="Save", button_type="submit"),
+        ],
+        forms=[
+            FormInfo(action="/profile", method="post"),
+            FormInfo(action="/profile", method="post"),
+        ],
+    )
+
+    behaviors = discover_application_behaviors(result)
+
+    assert all(
+        len({item.description.casefold() for item in behavior.evidence})
+        == len(behavior.evidence)
+        for behavior in behaviors
+    )
+    assert all(len(behavior.evidence) == 1 for behavior in behaviors)
+    assert all(
+        item.source is EvidenceSource.DETERMINISTIC
+        for behavior in behaviors
+        for item in behavior.evidence
+    )
+
+
+def test_behavior_json_serialization_is_repeatable() -> None:
+    result = _result(
+        links=[LinkInfo(text="  Account\nsettings ", href="/account", is_external=False)],
+        inputs=[InputInfo(name="email", input_type="EMAIL")],
+    )
+
+    first = [
+        item.model_dump(mode="json")
+        for item in discover_application_behaviors(result)
+    ]
+    second = [
+        item.model_dump(mode="json")
+        for item in discover_application_behaviors(result)
+    ]
+
+    assert first == second
+    assert first[0]["evidence"][0]["description"] == (
+        "Link observed: label=Account settings"
+    )
+
+
 def test_behavior_order_is_stable_and_classification_does_not_duplicate_signals() -> None:
     result = _result(
         title="Search",
@@ -202,7 +307,7 @@ def test_analysis_workflows_preserve_deterministic_behaviors(use_ai: bool) -> No
             {
                 "type": "behavior",
                 "source": "deterministic",
-                "description": "Link observed: text=Account, href=/account",
+                "description": "Link observed: label=Account",
                 "confidence": None,
                 "severity": None,
             }
