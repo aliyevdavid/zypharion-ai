@@ -20,6 +20,13 @@ from app.intelligence.models import BrowserIntelligenceResult, InputInfo
 _SEARCH_TERMS = ("search", "query", "find", "lookup")
 _AUTH_TERMS = ("login", "log in", "sign in", "signin", "authenticate")
 _SUBMIT_TERMS = ("submit", "send", "save", "continue", "apply")
+_TEST_CASE_TERMS = ("assert", "expected result", "step", "verify that")
+_HTML_LIKE = re.compile(r"<\s*/?\s*[a-z][^>]*>", flags=re.IGNORECASE)
+_SELECTOR_LIKE = re.compile(
+    r"(?:^|\s)(?:[#.][\w-]+|[a-z][\w-]*[.#][\w-]+|\[[^\]]+\]|"
+    r"//?[a-z][\w-]*|[a-z]+\s*>\s*[a-z]+)",
+    flags=re.IGNORECASE,
+)
 _DATA_ENTRY_TYPES = {
     "date",
     "datetime-local",
@@ -33,6 +40,20 @@ _DATA_ENTRY_TYPES = {
     "url",
     "week",
 }
+_SUPPORTED_INPUT_TYPES = _DATA_ENTRY_TYPES | {
+    "button",
+    "checkbox",
+    "color",
+    "file",
+    "hidden",
+    "image",
+    "password",
+    "radio",
+    "range",
+    "reset",
+    "submit",
+}
+_SUPPORTED_FORM_METHODS = {"get", "post", "dialog"}
 
 
 def _clean(value: str | None) -> str:
@@ -43,29 +64,44 @@ def _meaningful(value: str | None) -> bool:
     return bool(re.search(r"[\w]", _clean(value), flags=re.UNICODE))
 
 
+def _safe_observed_text(value: str | None) -> str | None:
+    """Return normalized user-facing text that is safe for public evidence."""
+    normalized = _clean(value)
+    if (
+        not _meaningful(normalized)
+        or _HTML_LIKE.search(normalized)
+        or _SELECTOR_LIKE.search(normalized)
+        or _contains_term(normalized, _TEST_CASE_TERMS)
+    ):
+        return None
+    return normalized
+
+
 def _contains_term(value: str, terms: Iterable[str]) -> bool:
     normalized = value.casefold()
     return any(term in normalized for term in terms)
 
 
 def _input_signal(input_item: InputInfo) -> str:
-    parts = [
-        f"type={_clean(input_item.input_type).casefold() or 'text'}",
-    ]
-    if _meaningful(input_item.name):
-        parts.append(f"name={_clean(input_item.name)}")
-    if _meaningful(input_item.placeholder):
-        parts.append(f"placeholder={_clean(input_item.placeholder)}")
-    return ", ".join(parts)
+    input_type = _clean(input_item.input_type).casefold()
+    return f"Input observed: type={input_type}"
+
+
+def _supported_input(input_item: InputInfo) -> bool:
+    return _clean(input_item.input_type).casefold() in _SUPPORTED_INPUT_TYPES
 
 
 def _is_search_input(input_item: InputInfo) -> bool:
+    if not _supported_input(input_item):
+        return False
     signal = " ".join(
-        (
-            input_item.input_type,
-            input_item.name or "",
-            input_item.placeholder or "",
+        value
+        for value in (
+            _clean(input_item.input_type),
+            _safe_observed_text(input_item.name),
+            _safe_observed_text(input_item.placeholder),
         )
+        if value
     )
     return (
         input_item.input_type.casefold() == "search"
@@ -77,14 +113,18 @@ def _evidence(
     evidence_type: EvidenceType,
     descriptions: Iterable[str],
 ) -> list[EvidenceItem]:
-    unique_descriptions = dict.fromkeys(descriptions)
+    unique_descriptions: dict[str, str] = {}
+    for description in descriptions:
+        normalized = _clean(description)
+        if _meaningful(normalized):
+            unique_descriptions.setdefault(normalized.casefold(), normalized)
     return [
         EvidenceItem(
             type=evidence_type,
             source=EvidenceSource.DETERMINISTIC,
             description=description,
         )
-        for description in unique_descriptions
+        for description in unique_descriptions.values()
     ]
 
 
@@ -109,13 +149,18 @@ def discover_application_behaviors(
     result: BrowserIntelligenceResult,
     classification: PageClassification | None = None,
 ) -> list[ApplicationBehavior]:
-    """Discover page-observable capabilities without creating test scenarios."""
+    """Discover deterministic page-observable capabilities.
+
+    Discovery describes only signals present in this browser snapshot. It is
+    intentionally independent of AI and is neither a complete application
+    model nor a source of test cases, selectors, steps, or assertions.
+    """
     behaviors: list[ApplicationBehavior] = []
 
     meaningful_links = [
         link
         for link in result.links
-        if _meaningful(link.text)
+        if _safe_observed_text(link.text)
         and bool(_clean(link.href))
         and not _clean(link.href).casefold().startswith(("#", "javascript:"))
     ]
@@ -128,20 +173,22 @@ def discover_application_behaviors(
                 "The page exposes meaningful links for navigation.",
                 EvidenceType.BEHAVIOR,
                 (
-                    f"Link observed: text={_clean(link.text)}, href={_clean(link.href)}"
+                    f"Link observed: label={_safe_observed_text(link.text)}"
                     for link in meaningful_links
                 ),
             )
         )
 
     password_inputs = [
-        item for item in result.inputs if item.input_type.casefold() == "password"
+        item
+        for item in result.inputs
+        if _clean(item.input_type).casefold() == "password"
     ]
     search_inputs = [item for item in result.inputs if _is_search_input(item)]
     data_inputs = [
         item
         for item in result.inputs
-        if item.input_type.casefold() in _DATA_ENTRY_TYPES
+        if _clean(item.input_type).casefold() in _DATA_ENTRY_TYPES
         and item not in search_inputs
     ]
 
@@ -154,7 +201,7 @@ def discover_application_behaviors(
                 "The page accepts a password credential.",
                 EvidenceType.STRUCTURE,
                 (
-                    f"Password input observed: {_input_signal(item)}"
+                    _input_signal(item)
                     for item in password_inputs
                 ),
             )
@@ -168,7 +215,7 @@ def discover_application_behaviors(
                 "The page accepts search-like input.",
                 EvidenceType.STRUCTURE,
                 (
-                    f"Search-like input observed: {_input_signal(item)}"
+                    _input_signal(item)
                     for item in search_inputs
                 ),
             )
@@ -182,14 +229,17 @@ def discover_application_behaviors(
                 "The page accepts general user-entered data.",
                 EvidenceType.STRUCTURE,
                 (
-                    f"Data-entry input observed: {_input_signal(item)}"
+                    _input_signal(item)
                     for item in data_inputs
                 ),
             )
         )
 
-    button_labels = [_clean(button.text) for button in result.buttons]
-    button_labels = [label for label in button_labels if _meaningful(label)]
+    button_labels = [
+        label
+        for button in result.buttons
+        if (label := _safe_observed_text(button.text)) is not None
+    ]
     auth_buttons = [
         label for label in button_labels if _contains_term(label, _AUTH_TERMS)
     ]
@@ -197,9 +247,9 @@ def discover_application_behaviors(
         label for label in button_labels if _contains_term(label, _SEARCH_TERMS)
     ]
     submit_buttons = [
-        _clean(button.text)
+        label
         for button in result.buttons
-        if _meaningful(button.text)
+        if (label := _safe_observed_text(button.text)) is not None
         and (
             (button.button_type or "").casefold() == "submit"
             or _contains_term(_clean(button.text), _SUBMIT_TERMS)
@@ -251,11 +301,15 @@ def discover_application_behaviors(
                 )
             )
 
-    if result.forms:
+    meaningful_forms = [
+        form
+        for form in result.forms
+        if _clean(form.method).casefold() in _SUPPORTED_FORM_METHODS
+    ]
+    if meaningful_forms:
         form_evidence = [
-            f"Form observed: method={_clean(form.method).casefold() or 'get'}"
-            + (f", action={_clean(form.action)}" if _meaningful(form.action) else "")
-            for form in result.forms
+            f"Form observed: method={_clean(form.method).casefold()}"
+            for form in meaningful_forms
         ]
         behaviors.append(
             _behavior(
